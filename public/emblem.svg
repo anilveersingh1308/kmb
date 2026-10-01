@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220" width="200" height="220">
+  <defs>
+    <clipPath id="diamond">
+      <polygon points="100,8 192,100 100,192 8,100"/>
+    </clipPath>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eaf4ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- outer navy diamond -->
+  <polygon points="100,2 198,100 100,198 2,100" fill="#0f2a5c"/>
+  <polygon points="100,8 192,100 100,192 8,100" fill="url(#water)"/>
+
+  <g clip-path="url(#diamond)">
+    <!-- red upper-left field -->
+    <polygon points="8,100 100,8 100,100 54,146" fill="#d21f2b"/>
+    <!-- white peak triangle -->
+    <polygon points="100,8 192,100 100,100" fill="#ffffff"/>
+    <!-- navy mountain ridge -->
+    <polygon points="100,60 150,110 130,130 100,100 70,130 50,110" fill="#0f2a5c" opacity="0.9"/>
+    <!-- river waves -->
+    <g fill="none" stroke="#1d5fb5" stroke-width="7" stroke-linecap="round">
+      <path d="M20 132 C 45 120, 70 145, 100 132 S 150 120, 180 134"/>
+      <path d="M32 150 C 55 138, 80 162, 104 150 S 148 138, 170 152"/>
+      <path d="M50 168 C 70 158, 90 178, 110 168 S 140 158, 156 170"/>
+    </g>
+    <!-- Ashoka lions (simplified) in red field -->
+    <g fill="#ffffff" transform="translate(52 42) scale(0.55)">
+      <circle cx="40" cy="26" r="9"/>
+      <rect x="20" y="34" width="40" height="30" rx="6"/>
+      <rect x="10" y="62" width="60" height="8" rx="2"/>
+      <circle cx="40" cy="80" r="6" fill="none" stroke="#fff" stroke-width="3"/>
+    </g>
+  </g>
+
+  <!-- Hindi label -->
+  <text x="100" y="214" text-anchor="middle" font-family="'Noto Sans Devanagari', sans-serif" font-weight="700" font-size="17" fill="#d21f2b">उत्तराखण्ड राज्य</text>
+</svg>

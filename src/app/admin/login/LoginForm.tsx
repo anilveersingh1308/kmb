@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Lock, LogIn, Eye, EyeOff, KeyRound, Mail, ArrowLeft, ShieldCheck, Timer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Ambient from "@/components/Ambient";
+import { requestLoginCode, verifyLoginCode } from "./actions";
 
 type Mode = "password" | "otp";
 const GENERIC = "Invalid ID / email or password.";
@@ -80,39 +81,28 @@ export default function LoginForm() {
     e?.preventDefault();
     setError("");
     setBusy(true);
-    const email = otpEmail ?? (await resolveEmail());
-    if (!email || email.endsWith("@npk.local")) {
-      setBusy(false);
-      setError("No email is registered for this account. Ask an administrator to add one, or sign in with your password.");
-      return;
-    }
-    const { error: otpErr } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false, emailRedirectTo: `${location.origin}/auth/callback?next=/admin` },
-    });
+    const res = await requestLoginCode(identifier);
     setBusy(false);
-    if (otpErr) {
-      setError(/rate|seconds/i.test(otpErr.message) ? "Please wait a minute before requesting another code." : "Could not send the code. Try again or use your password.");
-      return;
-    }
-    setOtpEmail(email);
+    if (!res.ok) { setError(res.error ?? "Could not send the code."); return; }
+    setOtpEmail(res.masked ?? identifier);
     setCooldown(60);
     setTimeout(() => codeRef.current?.focus(), 50);
   };
 
   const verifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpEmail) return;
     const token = code.replace(/\D/g, "");
     if (token.length < 6) { setError("Enter the 6-digit code from your email."); return; }
     setError("");
     setBusy(true);
-    const { data, error: vErr } = await supabase.auth.verifyOtp({ email: otpEmail, token, type: "email" });
-    if (vErr || !data.user) { setBusy(false); setError("Incorrect or expired code. Request a new one."); return; }
-    await finish(data.user.id);
+    const res = await verifyLoginCode(identifier, token);
+    if (!res.ok) { setBusy(false); setError(res.error ?? "Incorrect or expired code."); return; }
+    const next = params.get("next");
+    router.replace(next && next.startsWith("/admin") ? next : "/admin");
+    router.refresh();
   };
 
-  const maskedEmail = otpEmail ? otpEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + "•".repeat(Math.min(6, b.length)) + c) : "";
+  const maskedEmail = otpEmail ?? "";
 
   return (
     <main className="relative flex min-h-dvh items-center justify-center px-4 py-10">
@@ -168,7 +158,7 @@ export default function LoginForm() {
             <motion.form key="otp-request" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.2 }}
               onSubmit={sendCode} className="relative mt-5 space-y-4">
               <IdentifierField value={identifier} onChange={setIdentifier} />
-              <p className="text-xs text-slate-400">We&apos;ll email a 6-digit one-time code (and a magic link) to the address registered for this account.</p>
+              <p className="text-xs text-slate-400">We&apos;ll email a 6-digit one-time code to the address registered for this account. It is valid for 10 minutes.</p>
               <ErrorBox error={error} />
               <button disabled={busy} className="btn-gold flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 font-semibold disabled:opacity-60">
                 <Mail className="h-5 w-5" /> {busy ? "Sending…" : "Send code"}
@@ -178,7 +168,7 @@ export default function LoginForm() {
             <motion.form key="otp-verify" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.2 }}
               onSubmit={verifyCode} className="relative mt-5 space-y-4">
               <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">
-                <ShieldCheck className="mr-1 inline h-4 w-4 text-emerald-300" /> Code sent to <b>{maskedEmail}</b>. It expires in a few minutes.
+                <ShieldCheck className="mr-1 inline h-4 w-4 text-emerald-300" /> Code sent to <b>{maskedEmail}</b>. It expires in 10 minutes.
               </div>
               <div>
                 <label className="label" htmlFor="code">One-time code</label>

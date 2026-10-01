@@ -4,7 +4,7 @@ import { SITE_URL } from "@/lib/types";
 
 // Loaded via <link> rather than next/font: Turbopack's Google-font resolver is unreliable for multi-weight Devanagari.
 const FONTS_HREF =
-  "https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,700;1,400&family=Poppins:wght@400;500;600;700&display=swap";
+  "https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Poppins:wght@400;500;600;700&display=swap";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

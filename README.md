@@ -17,11 +17,12 @@ instantly receive a personalised, verifiable **प्रशस्ति पत�
 
 ## Features
 
-- **Pixel-exact certificate** reproduced from the official design on a fixed 1123 × 794 px A4-landscape canvas, auto-scaled to any screen, with auto-fitting long names, the Executive Officer's real signature, serial number and a **unique verification QR code** per certificate.
+- **Pixel-exact certificate** reproduced from the official design on a fixed 1123 × 794 px A4-landscape canvas, auto-scaled to any screen, with auto-fitting long names, the Executive Officer's real signature, serial number, a **unique verification QR code** per certificate and the line *“in collaboration with Nagar Panchayat, Healing Himalayas, and Sulabh International”*.
+- **Bilingual** — a हिं / EN toggle (cookie-persisted) switches the landing page sample, the public certificate page, the printed certificate and the PDF between the **Hindi original** and a full **English edition**. `?lang=en|hi` on any public URL forces a language (handy for sharing).
 - **QR authenticity check** — scanning the printed QR opens `/c/<token>?via=qr`, which shows a green *“Authentic certificate · यह प्रमाण पत्र असली है”* banner after matching the token against the register. `GET /api/verify/<token>` returns the same result as JSON for third parties; forged / unknown codes get a 404.
 - **Public certificate page** `/c/<token>` — cinematic reveal, layered celebration (cannons → gold starburst → 🙏🌿🏔️ shower → glitter rain), Download PDF, Print, Share, WhatsApp, Copy link.
-- **Campaign landing page** `/` — aurora + snowfall ambience, 3-D tilting certificate preview, live public counters, "how it works", verify box.
-- **Staff portal** `/admin` — sign in with **Employee ID *or* email**, using a **password** or a **6-digit one-time code / magic link** sent to the registered email:
+- **Campaign landing page** `/` — Kedarnath peak hero photograph with slow Ken-Burns zoom and scroll parallax, trail photo feature, aurora + snowfall ambience, 3-D tilting certificate preview, live public counters, "how it works", verify box.
+- **Staff portal** `/admin` — sign in with **Employee ID *or* email**, using a **password** or a **6-digit one-time code** that the app emails through Resend itself (no dependence on Supabase's 2-per-hour built-in mailer):
   - **Quick Outward** — sub-20-second issue loop, live name preview, inventory chips, **24-hour duplicate guard** (same phone/email → warn, operator can override), QR + link on success, resend email, "Next".
   - **Records** — search, source/date filters, pagination, copy/open/resend, admin edit & delete, **CSV export** (UTF-8 BOM).
   - **Stats** — today / 7-day / all-time, 14-day chart, email delivery health.
@@ -55,16 +56,18 @@ Design preview without a database: **http://localhost:3000/preview?name=Your%20N
    ```
    *(Or paste the same files into the SQL Editor in order: `0001`, `0002`, `0003`, `seed.sql`.)*
 
-   Seeded accounts — **change them before going live** (edit the two `upsert_employee(...)` lines in `seed.sql` or use Employees → reset password):
+   Seeded accounts — **change the passwords before going live** (Employees → reset password):
 
    | Employee ID | Email | Password | Role |
    |---|---|---|---|
-   | `NPK-0001` | admin@example.com | `ChangeMe@2026` | admin |
-   | `NPK-0042` | operator@example.com | `Operator@2026` | operator |
+   | `NPK-0001` | anilsingh40545@gmail.com | `ChangeMe@2026` | admin |
+   | `NPK-0042` | anilsingh40543@gmail.com | `Operator@2026` | operator |
+   | `NPK-0043` | anilsingh40542@gmail.com | `Operator@2026` | operator |
 
-4. Authentication → Providers → **Email**: enabled, *Confirm email* OFF (admins create accounts). For the **one-time code** login to show a 6-digit code, edit Authentication → Email Templates → *Magic Link* and include `{{ .Token }}` in the body (keep `{{ .ConfirmationURL }}` too if you want the link to work).
+4. Authentication → Providers → **Email**: enabled, *Confirm email* OFF (admins create accounts).
 5. Authentication → URL Configuration → add `https://<your-domain>/auth/callback` (and `http://localhost:3000/auth/callback`) to *Redirect URLs*.
-6. Recommended: Authentication → **SMTP Settings** → use Resend SMTP (`smtp.resend.com`, user `resend`, password = API key) so OTP emails are branded and not limited to 2 / hour.
+
+> **How the one-time code works.** `requestLoginCode()` stores a SHA-256 hash of a random 6-digit code in `login_otps` (10-minute expiry, 5 attempts, 4 codes / 10 min) and emails it via Resend. `verifyLoginCode()` checks the hash, then mints a Supabase session server-side with `auth.admin.generateLink` + `verifyOtp`. Supabase's own mailer is never used, so there is no “team-members only” restriction or hourly cap.
 
 ### Optional: database webhook (safety net)
 
@@ -81,7 +84,7 @@ Database → Webhooks → Create:
 
 To switch providers, edit `deliver()` in `src/lib/email.ts` — everything else is provider-agnostic. Sender, subject, intro text, BCC and staff alerts are editable at runtime in **Staff portal → Settings**.
 
-> Resend rejects `@example.com` recipients by design — the seeded demo participants will show *failed* until you issue certificates with real addresses.
+> Resend rejects `@example.com` recipients by design — the seeded demo *participants* will show *failed* until you issue certificates with real addresses. Staff accounts use real Gmail addresses, so sign-in codes deliver.
 
 ### Daily summary (optional)
 
@@ -137,34 +140,38 @@ src/
     page.tsx                     landing page
     c/[token]/page.tsx           public certificate (tokenised, no auth; ?via=qr = authenticity banner)
     preview/page.tsx             design preview (dev / ALLOW_PREVIEW=1)
-    admin/login                  staff sign-in (ID or email · password or OTP)
+    admin/login                  staff sign-in (ID or email · password or OTP) + actions.ts (self-hosted codes)
     admin/(portal)/              layout guard + Quick Outward, records, stats, employees, settings
     admin/actions.ts             server actions (issue, resend, delete, employees, settings)
-    auth/callback/route.ts       magic-link landing
+    auth/callback/route.ts       magic-link landing (kept for Supabase links)
     api/mobile-ingest            mobile app endpoint
     api/verify/[token]           public JSON authenticity check
     api/webhooks/certificate-created
     api/cron/daily-summary
     api/admin/export             CSV export
   components/
-    Certificate.tsx              pixel-exact certificate
+    Certificate.tsx              pixel-exact certificate (lang="hi" | "en")
     CertificateView.tsx          public page with celebration + QR verification + actions
-    Landing.tsx, Ambient.tsx, celebration.ts
+    Landing.tsx, Ambient.tsx, LangToggle.tsx, celebration.ts
     admin/                       AdminShell, QuickOutward, RecordsTable, EmployeesPanel, SettingsPanel
   lib/
     supabase/{client,server,admin}.ts
+    i18n.ts, lang-server.ts      certificate + UI strings, cookie language resolution
     email.ts, settings.ts, pdf.ts, validation.ts, secrets.ts, certificates.ts, types.ts
   proxy.ts                       session refresh + /admin route guard
 supabase/
-  migrations/0001_schema.sql, 0002_rls.sql, 0003_auth_settings_verify.sql, seed.sql
+  migrations/0001_schema.sql, 0002_rls.sql, 0003_auth_settings_verify.sql, 0004_login_otps.sql, seed.sql
 scripts/
   db-apply.mjs                   npm run db:migrate / db:seed
   db-find-host.mjs               finds the right pooler region if the URI host is wrong
   db-logs.mjs                    prints recent email_logs
+  email-test.mjs                 one-off Resend delivery test
+  dev-plant-otp.mjs              DEV ONLY: plant a known sign-in code to test the OTP flow
   make-signature.ps1             scanned signature JPEG/PNG → trimmed transparent PNG
 public/
   emblem.svg                     ← replace with the official state emblem artwork
   signature.png                  Executive Officer's signature (transparent, trimmed)
+  kedarnath.jpg, kedarnath-trail.jpg   landing photos (Wikimedia Commons, CC BY-SA 4.0 — credited in footer)
 ```
 
 ## Replacing the artwork

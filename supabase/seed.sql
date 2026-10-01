@@ -3,10 +3,10 @@
 --  Run AFTER 0001, 0002, 0003.  Safe to re-run (idempotent).
 --
 --  ┌────────────────────────────────────────────────────────────────┐
---  │  EDIT THESE before running in production:                      │
---  │    admin   : NPK-0001 / admin@example.com    / ChangeMe@2026    │
---  │    operator: NPK-0042 / operator@example.com / Operator@2026    │
---  │  OTP / magic-link login only works for REAL mailboxes.         │
+--  │  Staff accounts (re-running updates email/role, keeps password):   │
+--  │    admin    : NPK-0001 / anilsingh40545@gmail.com / ChangeMe@2026  │
+--  │    operator : NPK-0042 / anilsingh40543@gmail.com / Operator@2026  │
+--  │    operator : NPK-0043 / anilsingh40542@gmail.com / Operator@2026  │
 --  └────────────────────────────────────────────────────────────────┘
 -- =====================================================================
 
@@ -15,7 +15,10 @@ create or replace function pg_temp.upsert_employee(
 ) returns uuid language plpgsql as $$
 declare v_uid uuid;
 begin
-  select id into v_uid from auth.users where email = lower(p_email);
+  select id into v_uid from public.employees where employee_id = p_employee_id;
+  if v_uid is null then
+    select id into v_uid from auth.users where email = lower(p_email);
+  end if;
   if v_uid is null then
     v_uid := gen_random_uuid();
     insert into auth.users (
@@ -32,15 +35,21 @@ begin
     values (gen_random_uuid(), v_uid, v_uid::text,
             jsonb_build_object('sub', v_uid::text, 'email', lower(p_email), 'email_verified', true),
             'email', now(), now(), now());
+  else
+    -- keep auth + identity email in sync with the seed (password untouched)
+    update auth.users set email = lower(p_email), email_confirmed_at = coalesce(email_confirmed_at, now()), updated_at = now() where id = v_uid;
+    update auth.identities set identity_data = identity_data || jsonb_build_object('email', lower(p_email)), updated_at = now()
+     where user_id = v_uid and provider = 'email';
   end if;
   insert into public.employees (id, employee_id, full_name, role, email)
   values (v_uid, p_employee_id, p_full_name, p_role, lower(p_email))
-  on conflict (id) do update set employee_id = excluded.employee_id, email = excluded.email, role = excluded.role;
+  on conflict (id) do update set employee_id = excluded.employee_id, email = excluded.email, role = excluded.role, full_name = excluded.full_name;
   return v_uid;
 end $$;
 
-select pg_temp.upsert_employee('NPK-0001', 'admin@example.com',    'ChangeMe@2026', 'Executive Officer', 'admin');
-select pg_temp.upsert_employee('NPK-0042', 'operator@example.com', 'Operator@2026', 'Rajesh Semwal',     'operator');
+select pg_temp.upsert_employee('NPK-0001', 'anilsingh40545@gmail.com', 'ChangeMe@2026', 'Executive Officer', 'admin');
+select pg_temp.upsert_employee('NPK-0042', 'anilsingh40543@gmail.com', 'Operator@2026', 'Rajesh Semwal',     'operator');
+select pg_temp.upsert_employee('NPK-0043', 'anilsingh40542@gmail.com', 'Operator@2026', 'Sunil Rawat',       'operator');
 
 -- ---------------------------------------------------------------------
 -- Demo participants (certificates + serials are created by trigger)
@@ -53,7 +62,8 @@ create or replace function pg_temp.demo_participant(
 declare v_emp uuid; v_ts timestamptz := now() - (p_days_ago || ' days')::interval - (random() * interval '6 hours');
 begin
   select id into v_emp from public.employees where employee_id = p_operator;
-  if exists (select 1 from public.participants where bag_number = p_bag and deposit_date = (v_ts at time zone 'Asia/Kolkata')::date) then return; end if;
+  if exists (select 1 from public.participants where bag_number = p_bag and deposit_date = (v_ts at time zone 'Asia/Kolkata')::date)
+     or exists (select 1 from public.participants where client_ref = 'demo-' || p_bag) then return; end if;
   insert into public.participants (full_name, email, phone, bag_number, bag_quantity, waste_kg, inventory_items, source, created_by, created_at, deposit_date, client_ref)
   values (p_name, p_email, p_phone, p_bag, p_qty, p_kg, p_inv, p_source, v_emp, v_ts, (v_ts at time zone 'Asia/Kolkata')::date,
           case when p_source = 'mobile_app' then 'demo-' || p_bag else null end);

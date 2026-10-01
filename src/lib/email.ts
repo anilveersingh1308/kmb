@@ -151,6 +151,21 @@ export async function notifyStaff(kind: "issue" | "failure", d: { name: string; 
   } catch { /* notifications must never break issuing */ }
 }
 
+/** Staff sign-in code (sent by us via Resend, bypassing Supabase's rate-limited built-in mailer). */
+export async function sendLoginCodeEmail(to: string, code: string, employeeName: string): Promise<SendResult> {
+  const { email: s } = await getSettings();
+  const subject = `${code} is your Carry Me Back staff sign-in code`;
+  const digits = code.split("").map((d) => `<span style="display:inline-block;width:40px;height:52px;line-height:52px;margin:0 3px;border-radius:10px;background:#f6f1e3;border:1px solid #e8d28a;font-size:26px;font-weight:700;color:#5a1414">${d}</span>`).join("");
+  const body = `
+    <p style="font-size:16px;margin:0 0 6px">Namaste <b>${escapeHtml(employeeName)}</b>,</p>
+    <p style="margin:0 0 18px;color:#444;line-height:1.6">Use this one-time code to sign in to the Carry Me Back staff portal. It expires in <b>10 minutes</b>.</p>
+    <div style="text-align:center;margin:10px 0 22px">${digits}</div>
+    <p style="font-size:12px;color:#777;margin:0;line-height:1.6">If you did not request this code, you can ignore this email — nobody can sign in without it. Never share this code with anyone, including people claiming to be from Nagar Panchayat.</p>`;
+  const res = await deliver({ to, subject, html: shell(subject, body, "Staff portal · Nagar Panchayat Kedarnath"), text: `Your Carry Me Back staff sign-in code is ${code}. It expires in 10 minutes.`, from: fromHeader(s), replyTo: replyToHeader(s) });
+  await createAdminClient().from("email_logs").insert({ to_email: to, status: res.ok ? "sent" : "failed", kind: "notification", error: res.ok ? null : res.error, provider_message_id: res.ok ? res.id : null });
+  return res.ok ? { status: "sent" } : { status: "failed", error: res.error };
+}
+
 export async function sendTestEmail(to: string): Promise<SendResult> {
   const { email: s } = await getSettings();
   const subject = "✅ Test email – Carry Me Back settings";

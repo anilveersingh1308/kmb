@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { motion, useMotionValue, useSpring, useTransform, useInView } from "motion/react";
+import { motion, useMotionValue, useSpring, useTransform, useInView, useScroll } from "motion/react";
 import { ArrowRight, Leaf, Mountain, Mail, ShieldCheck, Recycle, Award, QrCode, Lock } from "lucide-react";
 import Ambient from "./Ambient";
 import Certificate from "./Certificate";
+import LangToggle from "./LangToggle";
 import { useCelebration } from "./celebration";
+import type { Lang } from "@/lib/i18n";
 
 const SAMPLE = { full_name: "Shree Vikram", bag_quantity: 1, waste_kg: 1, serial_no: "CMB-2026-000001", issued_on: new Date().toISOString().slice(0, 10) };
 
@@ -31,11 +34,16 @@ function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
   return <span ref={ref}>{v.toLocaleString("en-IN")}{suffix}</span>;
 }
 
-export default function Landing({ counts }: { counts: { certificates: number; bags: number; kg: number } }) {
+export default function Landing({ counts, lang }: { counts: { certificates: number; bags: number; kg: number }; lang: Lang }) {
   const fire = useCelebration();
   const router = useRouter();
   const [token, setToken] = useState("");
   const [err, setErr] = useState("");
+
+  // Hero photo parallax
+  const { scrollY } = useScroll();
+  const heroY = useTransform(scrollY, [0, 800], [0, 160]);
+  const heroOpacity = useTransform(scrollY, [0, 600], [1, 0.35]);
 
   useEffect(() => {
     const t = setTimeout(() => fire("welcome"), 600);
@@ -64,6 +72,15 @@ export default function Landing({ counts }: { counts: { certificates: number; ba
     <main className="relative overflow-x-hidden">
       <Ambient />
 
+      {/* Kedarnath hero photograph — slow Ken Burns zoom + scroll parallax */}
+      <motion.div aria-hidden style={{ y: heroY, opacity: heroOpacity }} className="pointer-events-none absolute inset-x-0 top-0 -z-[5] h-[115vh] overflow-hidden">
+        <motion.div initial={{ scale: 1.08 }} animate={{ scale: 1.18 }} transition={{ duration: 28, ease: "linear", repeat: Infinity, repeatType: "reverse" }} className="absolute inset-0">
+          <Image src="/kedarnath.jpg" alt="" fill priority sizes="100vw" className="object-cover object-[50%_35%]" />
+        </motion.div>
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,13,18,.55)_0%,rgba(11,13,18,.35)_30%,rgba(11,13,18,.75)_70%,#0b0d12_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(201,166,75,.18),transparent_55%)]" />
+      </motion.div>
+
       {/* NAV */}
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-3">
@@ -77,6 +94,7 @@ export default function Landing({ counts }: { counts: { certificates: number; ba
         <div className="flex items-center gap-2 text-sm">
           <a href="#how" className="hidden rounded-full px-3 py-2 text-slate-300 hover:text-white sm:inline">How it works</a>
           <a href="#verify" className="hidden rounded-full px-3 py-2 text-slate-300 hover:text-white sm:inline">Verify</a>
+          <LangToggle lang={lang} />
           <Link href="/admin/login" className="btn-ghost inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-semibold">
             <Lock className="h-4 w-4" /> Staff
           </Link>
@@ -129,12 +147,38 @@ export default function Landing({ counts }: { counts: { certificates: number; ba
           <motion.div style={{ rotateX: rx, rotateY: ry, transformStyle: "preserve-3d" }} className="animate-float">
             <div className="pointer-events-none absolute -inset-3 -z-10 rounded-3xl bg-[conic-gradient(from_180deg,#c9a64b,#f3e4a8,#7a1f1f,#1e7b34,#c9a64b)] opacity-40 blur-2xl" />
             <div className="overflow-hidden rounded-xl bg-white shadow-[0_50px_120px_-30px_rgba(201,166,75,.6)]">
-              <Certificate data={SAMPLE} verifyUrl="https://carrymeback.in/c/sample" />
+              <Certificate data={SAMPLE} verifyUrl="https://carrymeback.in/c/sample?via=qr" lang={lang} />
             </div>
             <div className="pointer-events-none absolute inset-0 rounded-xl bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,.35)_45%,transparent_60%)] bg-[length:250%_100%] animate-shimmer" />
           </motion.div>
           <div className="glass absolute -bottom-5 left-1/2 -translate-x-1/2 rounded-full px-4 py-2 text-xs text-slate-200">
             Your name goes here · <span className="text-gold-light">Personalised for every pilgrim</span>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* THE TRAIL — photo feature */}
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.8 }}
+          className="relative overflow-hidden rounded-[2rem] border border-white/10 shadow-[0_40px_120px_-40px_rgba(0,0,0,.9)]">
+          <div className="relative h-[420px] sm:h-[520px]">
+            <Image src="/kedarnath-trail.jpg" alt="Pilgrims walking the stone-paved trail to Kedarnath below snow-covered peaks" fill sizes="(max-width: 1280px) 100vw, 1280px" className="object-cover" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,13,18,.92)_0%,rgba(11,13,18,.6)_45%,rgba(11,13,18,.15)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(11,13,18,.8)_0%,transparent_40%)]" />
+          </div>
+          <div className="absolute inset-0 flex flex-col justify-end p-6 sm:justify-center sm:p-12">
+            <p className="font-devanagari text-gold-light">16 किलोमीटर · 3,583 मीटर</p>
+            <h2 className="mt-2 max-w-xl text-3xl font-bold leading-tight text-white sm:text-5xl">
+              Sixteen kilometres of faith.<br /><span className="text-gold-shimmer">One kilogram of responsibility.</span>
+            </h2>
+            <p className="mt-4 max-w-lg text-slate-200">
+              Every season, lakhs of pilgrims climb from Gaurikund to Baba Kedar&apos;s door. Everything that goes up must come down the same stone path —
+              on a mule, on a porter&apos;s back, or in your hand. Carry Me Back makes that last option an honour.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a href="#how" className="btn-gold inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-semibold">See how it works <ArrowRight className="h-4 w-4" /></a>
+              <a href="#verify" className="btn-ghost inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-semibold">Verify a certificate</a>
+            </div>
           </div>
         </motion.div>
       </section>
@@ -210,7 +254,10 @@ export default function Landing({ counts }: { counts: { certificates: number; ba
       <footer className="mx-auto max-w-7xl px-4 pb-10 pt-6 text-center sm:px-6">
         <p className="font-devanagari text-xl font-bold text-emerald-400">स्वच्छ केदारनाथ · सुंदर केदारनाथ</p>
         <p className="mt-2 text-xs text-slate-500">
-          © {new Date().getFullYear()} कार्यालय नगर पंचायत केदारनाथ, रुद्रप्रयाग (उत्तराखंड) · Carry Me Back is a zero-cost citizen initiative.
+          © {new Date().getFullYear()} कार्यालय नगर पंचायत केदारनाथ, रुद्रप्रयाग (उत्तराखंड) · In collaboration with Nagar Panchayat, Healing Himalayas, and Sulabh International.
+        </p>
+        <p className="mt-3 text-[10px] text-slate-600">
+          Photos: “Kedar peak behind Kedarnath temple” by Ankitsingh123 · “Way to Kedarnath Peak” by Shainy Omer — Wikimedia Commons, CC BY-SA 4.0.
         </p>
       </footer>
     </main>

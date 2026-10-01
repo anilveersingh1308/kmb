@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import CertificateView from "@/components/CertificateView";
 import { fetchPublicCertificate } from "@/lib/certificates";
 import { certificateUrl, qrVerifyUrl } from "@/lib/types";
+import { getLang } from "@/lib/lang-server";
 
 export const dynamic = "force-dynamic";
 
-type Params = { params: Promise<{ token: string }>; searchParams: Promise<{ via?: string }> };
+type Params = { params: Promise<{ token: string }>; searchParams: Promise<{ via?: string; lang?: string }> };
 
 function istNow() {
   return new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -29,8 +30,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function CertificatePage({ params, searchParams }: Params) {
-  const [{ token }, { via }] = await Promise.all([params, searchParams]);
-  const cert = await fetchPublicCertificate(token);
+  const [{ token }, { via, lang: langParam }] = await Promise.all([params, searchParams]);
+  const [cert, lang] = await Promise.all([fetchPublicCertificate(token), getLang(langParam)]);
   if (!cert) notFound();
-  return <CertificateView data={cert} url={certificateUrl(token)} qrUrl={qrVerifyUrl(token)} viaQr={via === "qr"} verifiedAt={istNow()} />;
+  return <CertificateView data={cert} url={certificateUrl(token)} qrUrl={qrVerifyUrl(token)} viaQr={via === "qr"} verifiedAt={istNow()} lang={lang} />;
 }

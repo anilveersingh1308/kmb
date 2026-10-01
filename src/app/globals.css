@@ -186,17 +186,28 @@ html {
 }
 .cert-body {
   position: absolute;
-  top: 500px;
+  top: 498px;
   left: 128px;
   right: 128px;
   text-align: justify;
   text-align-last: left;
   font-weight: 700;
   font-size: 15px;
-  line-height: 1.95;
+  line-height: 1.9;
   margin: 0;
 }
 .cert-body .latin { font-family: var(--font-serif-bold); font-weight: 700; }
+
+/* English edition: serif body, Poppins headings */
+.certificate.cert-en { font-family: var(--font-poppins); }
+.certificate.cert-en .cert-body {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 15.5px;
+  line-height: 1.85;
+  color: #222;
+}
+.certificate.cert-en .cert-body .latin { font-family: var(--font-serif-bold); font-weight: 700; color: #7a1f1f; }
 
 /* ---------- Print: exactly one A4 landscape page ---------- */
 @media print {

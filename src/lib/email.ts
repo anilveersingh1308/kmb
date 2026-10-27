@@ -3,20 +3,23 @@ import { Resend } from "resend";
 import { createAdminClient } from "./supabase/admin";
 import { fromHeader, getSettings, replyToHeader } from "./settings";
 import { certificateUrl, SITE_URL, type EmailSettings, type EmailStatus } from "./types";
+import { EMBLEM_PNG_BASE64 } from "./emblem-png";
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
+
+const EMBLEM_CID = "emblem@carrymeback";
 
 function shell(title: string, body: string, footer: string) {
   return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title></head>
 <body style="margin:0;background:#0b0d12;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1b1b1b">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0d12;padding:32px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e8d28a">
-  <tr><td style="background:linear-gradient(135deg,#7a1f1f,#5a1414);padding:28px 32px;text-align:center">
-    <img src="${SITE_URL}/emblem.svg" width="72" height="80" alt="" style="display:block;margin:0 auto 10px">
-    <div style="color:#f3e4a8;font-size:13px;letter-spacing:.2em;text-transform:uppercase">Carry Me Back · कैरी मी बैक</div>
-    <div style="color:#fff;font-size:22px;font-weight:700;margin-top:6px">नगर पंचायत केदारनाथ</div>
+  <tr><td bgcolor="#fffaf0" style="background-color:#fffaf0;padding:28px 32px 24px;text-align:center;border-bottom:4px solid #c9a64b">
+    <img src="cid:${EMBLEM_CID}" width="72" height="79" alt="Uttarakhand emblem" style="display:block;margin:0 auto 12px;border:0;outline:none">
+    <div style="color:#8a6a14;font-size:12px;font-weight:600;letter-spacing:.2em;text-transform:uppercase">Carry Me Back · कैरी मी बैक</div>
+    <div style="color:#7a1f1f;font-size:22px;font-weight:700;margin-top:6px">नगर पंचायत केदारनाथ</div>
   </td></tr>
   <tr><td style="padding:32px">${body}</td></tr>
   <tr><td style="background:#f6f1e3;padding:18px 32px;text-align:center">
@@ -66,6 +69,7 @@ async function deliver(opts: { to: string | string[]; subject: string; html: str
     const { data, error } = await resend.emails.send({
       from: opts.from, to: opts.to, replyTo: opts.replyTo, bcc: opts.bcc || undefined,
       subject: opts.subject, html: opts.html, text: opts.text,
+      attachments: [{ filename: "emblem.png", content: Buffer.from(EMBLEM_PNG_BASE64, "base64"), contentType: "image/png", inlineContentId: EMBLEM_CID }],
       headers: opts.ref ? { "X-Entity-Ref-ID": opts.ref } : undefined,
     });
     if (!error && data) return { ok: true as const, id: data.id };

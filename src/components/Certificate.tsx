@@ -83,9 +83,8 @@ export default function Certificate({ data, verifyUrl, fit = true, id, lang = "h
 
       {en ? (
         <>
-          <p className="cert-abs" style={{ top: 312, fontSize: 36, fontWeight: 700, color: "#7a1f1f", lineHeight: 1.4, fontFamily: "var(--font-serif-bold)", letterSpacing: "0.02em" }}>{t.title}</p>
-          <p className="cert-abs" style={{ top: 374, fontSize: 15, letterSpacing: "0.4em", color: "#4a4a4a", fontWeight: 600 }}>{t.subtitle}</p>
-          <p className="cert-abs" style={{ top: 412, fontSize: 14, fontStyle: "italic", color: "#333", fontFamily: "var(--font-serif)" }}>{t.presented}</p>
+          <p className="cert-abs" style={{ top: 330, fontSize: 36, fontWeight: 700, color: "#7a1f1f", lineHeight: 1.4, fontFamily: "var(--font-serif-bold)", letterSpacing: "0.02em" }}>{t.title}</p>
+          <p className="cert-abs" style={{ top: 396, fontSize: 14, fontStyle: "italic", color: "#333", fontFamily: "var(--font-serif)" }}>{t.presented}</p>
         </>
       ) : (
         <>
@@ -125,15 +124,15 @@ export default function Certificate({ data, verifyUrl, fit = true, id, lang = "h
       </p>
 
       {/* Micro footer: QR authenticity code + serial */}
-      <div style={{ position: "absolute", left: 54, bottom: 50, display: "flex", alignItems: "center", gap: 8, color: "#8a8a8a", fontSize: 8.5, fontFamily: "var(--font-poppins)" }}>
+      <div style={{ position: "absolute", left: 54, bottom: 50, display: "flex", alignItems: "center", gap: 8, color: "#8a8a8a", fontSize: 8.5, fontFamily: "var(--font-poppins)", maxWidth: 290 }}>
         <div style={{ textAlign: "center" }}>
           <QRCodeSVG value={verifyUrl} size={52} level="M" fgColor="#3a3a3a" bgColor="#ffffff" />
           <div style={{ fontSize: 6.5, letterSpacing: "0.08em", color: "#6a6a6a", marginTop: 1, textTransform: "uppercase" }}>Scan to verify</div>
         </div>
-        <div style={{ lineHeight: 1.5 }}>
+        <div style={{ lineHeight: 1.5, minWidth: 0 }}>
           <div>Serial: <b style={{ color: "#5a5a5a" }}>{data.serial_no}</b></div>
           <div>Issued: {formatIssued(data.issued_on)} · {data.bag_quantity} bag{data.bag_quantity > 1 ? "s" : ""} · {Number(data.waste_kg).toFixed(2)} kg</div>
-          <div>Verify: {verifyUrl.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}</div>
+          <div style={{ overflowWrap: "anywhere", wordBreak: "break-all" }}>Verify: {verifyUrl.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}</div>
         </div>
       </div>
     </div>

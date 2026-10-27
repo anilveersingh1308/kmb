@@ -29,7 +29,7 @@ export const CERT_TEXT = {
     office: "Office of Nagar Panchayat Kedarnath",
     district: "Rudraprayag (Uttarakhand)",
     title: "Certificate of Appreciation",
-    subtitle: "प्रशस्ति पत्र",
+    subtitle: "",
     presented: "This certificate is presented with great pride to",
     body1: "for their invaluable and exemplary contribution as a dedicated volunteer in the ‘",
     bodyLatin: "Carry Me Back",

@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function CertificatePage({ params, searchParams }: Params) {
   const [{ token }, { via, lang: langParam }] = await Promise.all([params, searchParams]);
-  const [cert, lang] = await Promise.all([fetchPublicCertificate(token), getLang(langParam)]);
+  const [cert, lang] = await Promise.all([fetchPublicCertificate(token), getLang(langParam, "en")]);
   if (!cert) notFound();
   return <CertificateView data={cert} url={certificateUrl(token)} qrUrl={qrVerifyUrl(token)} viaQr={via === "qr"} verifiedAt={istNow()} lang={lang} />;
 }

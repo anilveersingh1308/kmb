@@ -7,7 +7,7 @@ import { getLang } from "@/lib/lang-server";
 export default async function PreviewPage({ searchParams }: { searchParams: Promise<{ name?: string; via?: string; lang?: string }> }) {
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_PREVIEW !== "1") notFound();
   const { name, via, lang: langParam } = await searchParams;
-  const lang = await getLang(langParam);
+  const lang = await getLang(langParam, "en");
   const data = {
     full_name: name?.slice(0, 80) || "Shree Vikram",
     bag_quantity: 1,

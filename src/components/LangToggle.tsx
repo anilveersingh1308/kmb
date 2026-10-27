@@ -24,12 +24,12 @@ export default function LangToggle({ lang, className = "" }: { lang: Lang; class
   };
 
   return (
-    <button onClick={toggle} disabled={pending} aria-label={`Switch language to ${next === "en" ? "English" : "Hindi"}`}
-      className={`glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-white/15 disabled:opacity-60 ${className}`}>
-      <Languages className="h-4 w-4 text-gold-light" />
-      <span className={lang === "hi" ? "text-gold-light" : "text-slate-400"}>हिं</span>
-      <span className="text-slate-500">/</span>
-      <span className={lang === "en" ? "text-gold-light" : "text-slate-400"}>EN</span>
+    <button onClick={toggle} disabled={pending} aria-label={`Switch language to ${next === "en" ? "English" : "Hindi"}`} lang={next}
+      className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60 ${className}`}>
+      <Languages className="h-4 w-4" />
+      <span className={lang === "hi" ? "underline underline-offset-4" : "opacity-75"}>हिन्दी</span>
+      <span className="opacity-50">|</span>
+      <span className={lang === "en" ? "underline underline-offset-4" : "opacity-75"}>English</span>
     </button>
   );
 }

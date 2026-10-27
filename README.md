@@ -23,7 +23,7 @@ instantly receive a personalised, verifiable **प्रशस्ति पत�
 - **Public certificate page** `/c/<token>` — cinematic reveal, layered celebration (cannons → gold starburst → 🙏🌿🏔️ shower → glitter rain), Download PDF, Print, Share, WhatsApp, Copy link.
 - **Campaign landing page** `/` — Kedarnath peak hero photograph with slow Ken-Burns zoom and scroll parallax, trail photo feature, aurora + snowfall ambience, 3-D tilting certificate preview, live public counters, "how it works", verify box.
 - **Staff portal** `/admin` — sign in with **Employee ID *or* email**, using a **password** or a **6-digit one-time code** that the app emails through Resend itself (no dependence on Supabase's 2-per-hour built-in mailer):
-  - **Quick Outward** — sub-20-second issue loop, live name preview, inventory chips, **24-hour duplicate guard** (same phone/email → warn, operator can override), QR + link on success, resend email, "Next".
+  - **Quick Outward** — sub-20-second issue loop, live name preview, optional bag number, **24-hour duplicate guard** (same phone/email → warn, operator can override), QR + link on success, resend email, "Next".
   - **Records** — search, source/date filters, pagination, copy/open/resend, admin edit & delete, **CSV export** (UTF-8 BOM).
   - **Stats** — today / 7-day / all-time, 14-day chart, email delivery health.
   - **Employees** (admin) — create operators/admins with login email, change email, activate/deactivate, reset passwords, last-login.
@@ -113,10 +113,10 @@ Content-Type: application/json
   "full_name": "Shree Vikram",
   "email": "pilgrim@example.com",
   "phone": "9876543210",
-  "bag_number": "KB-1023",
+  "bag_number": "KB-1023",          // optional
   "bag_quantity": 1,
   "waste_kg": 1,
-  "inventory_items": ["INV-778", "INV-779"],
+  "inventory_items": ["INV-778", "INV-779"],   // optional, still accepted from the app
   "operator_employee_id": "NPK-0042",
   "client_ref": "<uuid generated on the device>"
 }
@@ -169,15 +169,16 @@ scripts/
   dev-plant-otp.mjs              DEV ONLY: plant a known sign-in code to test the OTP flow
   make-signature.ps1             scanned signature JPEG/PNG → trimmed transparent PNG
 public/
-  emblem.svg                     ← replace with the official state emblem artwork
+  uttarakhand-logo.png           official Uttarakhand Rajya logo (transparent) — certificate, header, favicon
   signature.png                  Executive Officer's signature (transparent, trimmed)
-  kedarnath.jpg, kedarnath-trail.jpg   landing photos (Wikimedia Commons, CC BY-SA 4.0 — credited in footer)
+  signature-sdm.png              Prabhari Adhikari / SDM signature (transparent, trimmed)
+  img/                           campaign photos (WebP) — catalogued once each in src/lib/photos.ts
 ```
 
 ## Replacing the artwork
 
 - **Signature** is already the Executive Officer's scanned signature (`public/signature.png`). To update it from a new scan: `powershell -File scripts/make-signature.ps1 "path\to\scan.jpg"` — it strips the white paper, trims and saves a transparent PNG.
-- **Emblem**: drop the official Uttarakhand state emblem into `public/emblem.svg` (or `.png` and update the `src` in `src/components/Certificate.tsx`). Everything else on the certificate is live text and CSS.
+- **Logo & photos**: `node scripts/build-campaign-photos.mjs "<photo folder>"` rebuilds the WebP photos, the transparent logo and the inline email logo (`src/lib/emblem-png.ts`). Add new photos to `src/lib/photos.ts` — each photo belongs to exactly one section so nothing repeats. Everything else on the certificate is live text and CSS.
 
 ## Cost
 

@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
-import { Download, Printer, Share2, Sparkles, BadgeCheck, MessageCircle, Copy, Check, ShieldCheck } from "lucide-react";
+import { Download, Printer, Share2, Sparkles, BadgeCheck, MessageCircle, Copy, Check, ShieldCheck, Loader2 } from "lucide-react";
 import Certificate, { formatIssued, sanitizeName } from "./Certificate";
-import Ambient from "./Ambient";
+import GovHeader from "./GovHeader";
+import GovFooter from "./GovFooter";
 import { useCelebration } from "./celebration";
-import { downloadCertificatePdf } from "@/lib/pdf";
+import { certificatePngFile, downloadCertificatePdf, printCertificate } from "@/lib/pdf";
+import { shareMessage, shareTitle, whatsappUrl } from "@/lib/share-text";
 import type { PublicCertificate } from "@/lib/types";
 import { UI, type Lang } from "@/lib/i18n";
-import LangToggle from "./LangToggle";
 
 interface Props {
   data: PublicCertificate;
@@ -30,7 +32,11 @@ export default function CertificateView({ data, url, qrUrl, viaQr = false, verif
   const printRef = useRef<HTMLDivElement>(null);
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [action, setAction] = useState<"print" | "share" | null>(null);
+  const [copied, setCopied] = useState<"link" | "message" | null>(null);
+  const [notice, setNotice] = useState("");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const name = sanitizeName(data.full_name);
 
   useEffect(() => {
@@ -50,188 +56,217 @@ export default function CertificateView({ data, url, qrUrl, viaQr = false, verif
     }
   };
 
-  const shareText = `🙏 I carried my waste back from Kedarnath Dham and earned a Certificate of Appreciation from Nagar Panchayat Kedarnath! स्वच्छ केदारनाथ, सुंदर केदारनाथ 🏔️\n${url}`;
-  const onShare = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: "My Carry Me Back Certificate", text: shareText, url }); } catch { /* cancelled */ }
-    } else {
-      await onCopy();
+  const fileBase = `Carry-Me-Back-Certificate-${data.serial_no}${lang === "en" ? "-EN" : ""}`;
+  const message = shareMessage(lang, { bags: data.bag_quantity, kg: Number(data.waste_kg), url });
+  const flash = (text: string) => { setNotice(text); setTimeout(() => setNotice(""), 3500); };
+
+  /** One A4-landscape page, printed from an isolated frame holding only the certificate image (see printCertificate). */
+  const onPrint = async () => {
+    if (action || !printRef.current) return;
+    setAction("print");
+    try {
+      await printCertificate(printRef.current, fileBase);
+    } catch {
+      window.print(); // fallback: the @media print stylesheet still isolates the certificate
+    } finally {
+      setAction(null);
     }
   };
-  const onCopy = async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+
+  /** Phones: share the certificate image + message (WhatsApp, Telegram, Mail…). Elsewhere: message only, or copy it. */
+  const onShare = async () => {
+    if (action) return;
+    setAction("share");
+    try {
+      if (navigator.share) {
+        try {
+          if (printRef.current && navigator.canShare?.({ files: [new File([""], "x.png", { type: "image/png" })] })) {
+            const file = await certificatePngFile(printRef.current, fileBase);
+            if (navigator.canShare({ files: [file] })) { await navigator.share({ title: shareTitle(lang), text: message, files: [file] }); return; }
+          }
+          await navigator.share({ title: shareTitle(lang), text: message });
+        } catch (e) {
+          if ((e as DOMException)?.name !== "AbortError") await copy("message"); // share sheet failed → fall back
+        }
+      } else {
+        await copy("message");
+      }
+    } finally {
+      setAction(null);
+    }
   };
 
+  const copy = async (what: "link" | "message") => {
+    try {
+      await navigator.clipboard.writeText(what === "link" ? url : message);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 1800);
+      if (what === "message") flash(lang === "hi" ? "संदेश कॉपी हो गया — इसे कहीं भी पेस्ट करें।" : "Message copied — paste it anywhere to share.");
+    } catch {
+      flash(lang === "hi" ? "कॉपी नहीं हो सका।" : "Couldn't copy to the clipboard.");
+    }
+  };
+
+  const hi = lang === "hi" ? "font-devanagari" : "";
+
   return (
-    <main className="relative min-h-dvh overflow-x-hidden">
-      <Ambient />
+    <>
+      <GovHeader lang={lang} active="verify" />
+      <main id="main" className="relative overflow-x-hidden bg-[linear-gradient(180deg,#f4f6fa_0%,#ffffff_420px)]">
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="mx-auto max-w-6xl px-4 pt-4 text-xs text-slate-500 sm:px-6">
+          <Link href="/" className="hover:text-navy hover:underline">{lang === "hi" ? "मुखपृष्ठ" : "Home"}</Link>
+          <span className="mx-1.5">›</span>
+          <span className={`text-slate-700 ${hi}`}>{t.verified}</span>
+          <span className="mx-1.5">›</span>
+          <span className="font-mono text-slate-700">{data.serial_no}</span>
+        </nav>
 
-      {/* Top bar */}
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/emblem.svg" alt="" className="h-10 w-10 drop-shadow-[0_0_12px_rgba(201,166,75,.5)]" />
-          <div className="leading-tight">
-            <div className="font-devanagari text-sm font-bold text-white">नगर पंचायत केदारनाथ</div>
-            <div className="text-[11px] tracking-[0.2em] text-slate-300 uppercase">Carry Me Back</div>
-          </div>
-        </Link>
-        <div className="flex items-center gap-2">
-          <LangToggle lang={lang} />
-          <span className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-emerald-300">
-            <BadgeCheck className="h-4 w-4" /> <span className="hidden sm:inline">{t.verified}</span>
-          </span>
-        </div>
-      </header>
-
-      {/* QR authenticity banner */}
-      {viaQr && (
-        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
-          className="mx-auto mt-2 max-w-3xl px-4 sm:px-6">
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 sm:p-5">
-            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-400/20 blur-2xl" />
-            <div className="flex items-start gap-3">
-              <div className="relative mt-0.5">
-                <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-pulse-ring" />
-                <ShieldCheck className="relative h-8 w-8 text-emerald-300" />
-              </div>
+        {/* QR authenticity banner */}
+        {viaQr && (
+          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+            className="mx-auto mt-4 max-w-4xl px-4 sm:px-6">
+            <div role="status" className="flex items-start gap-3 rounded-md border border-[#9fd49a] border-l-4 border-l-indiagreen bg-[#eef8ee] p-4">
+              <ShieldCheck className="mt-0.5 h-7 w-7 shrink-0 text-indiagreen" />
               <div>
-                <p className="font-semibold text-emerald-200">{t.authentic}</p>
-                <p className="mt-1 text-sm text-emerald-100/80">
-                  QR code matched record <b className="font-mono text-white">{data.serial_no}</b> issued to <b className="text-white">{name}</b> by
+                <p className="font-bold text-[#0e5a07]">{t.authentic}</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  QR code matched record <b className="font-mono text-ink">{data.serial_no}</b> issued to <b className="text-ink">{name}</b> by
                   Nagar Panchayat Kedarnath on {formatIssued(data.issued_on)}. Verified against the official register at {verifiedAt} IST.
                 </p>
               </div>
             </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Hero congrats */}
-      <section className="mx-auto max-w-6xl px-4 pt-6 text-center sm:px-6">
-        <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
-          className="font-devanagari text-base text-gold-light/90 sm:text-lg">
-          {t.thanksLine}
-        </motion.p>
-        <motion.h1 initial={{ opacity: 0, y: 20, filter: "blur(8px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 0.9, delay: 0.2 }}
-          className="mt-3 text-4xl font-bold tracking-tight sm:text-6xl">
-          <span className={`text-gold-shimmer ${lang === "hi" ? "font-devanagari" : ""}`}>{t.congrats}</span>
-          <br />
-          <span className="text-white">{name}</span>
-        </motion.h1>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }}
-          className={`mx-auto mt-4 max-w-2xl text-slate-300 ${lang === "hi" ? "font-devanagari" : ""}`}>
-          {t.carried(data.bag_quantity, Number(data.waste_kg).toFixed(2))}
-        </motion.p>
-      </section>
-
-      {/* Certificate reveal */}
-      <section className="mx-auto max-w-6xl px-2 pt-8 sm:px-6">
-        <div className="relative mx-auto max-w-5xl">
-          <AnimatePresence>
-            {!revealed && (
-              <motion.div key="loader" exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.5 }}
-                className="absolute inset-0 z-10 flex items-center justify-center">
-                <div className="relative">
-                  <span className="absolute inset-0 rounded-full bg-gold/40 animate-pulse-ring" />
-                  <div className="glass relative flex h-24 w-24 items-center justify-center rounded-full">
-                    <Sparkles className="h-9 w-9 text-gold-light animate-spin-slow" />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <motion.div
-            initial={{ opacity: 0, rotateX: 18, scale: 0.85, y: 60 }}
-            animate={revealed ? { opacity: 1, rotateX: 0, scale: 1, y: 0 } : {}}
-            transition={{ type: "spring", stiffness: 70, damping: 16, mass: 1.1 }}
-            style={{ transformPerspective: 1400 }}
-            className="relative rounded-xl bg-white shadow-[0_40px_120px_-30px_rgba(201,166,75,.55),0_0_0_1px_rgba(201,166,75,.35)]">
-            <div className="pointer-events-none absolute -inset-1 rounded-2xl bg-[conic-gradient(from_0deg,#c9a64b,#f3e4a8,#7a1f1f,#c9a64b)] opacity-40 blur-2xl -z-10 animate-spin-slow" />
-            <Certificate data={data} verifyUrl={qrUrl} lang={lang} />
           </motion.div>
-        </div>
+        )}
 
-        {/* Actions */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={revealed ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.4 }}
-          className="mx-auto mt-8 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
-          <button onClick={onDownload} disabled={busy}
-            className="btn-gold flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold disabled:opacity-60">
-            <Download className="h-5 w-5" /> {busy ? "…" : t.download}
-          </button>
-          <button onClick={() => window.print()} className="btn-ghost flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold">
-            <Printer className="h-5 w-5" /> {t.print}
-          </button>
-          <button onClick={onShare} className="btn-ghost flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold">
-            <Share2 className="h-5 w-5" /> {t.share}
-          </button>
-          <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noopener noreferrer"
-            className="btn-ghost flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-emerald-300">
-            <MessageCircle className="h-5 w-5" /> WhatsApp
-          </a>
-        </motion.div>
+        {/* Heading */}
+        <section className="mx-auto max-w-6xl px-4 pt-8 text-center sm:px-6">
+          <span className={`inline-flex items-center gap-1.5 rounded-full border border-[#9fd49a] bg-white px-3 py-1 text-xs font-semibold text-[#0e5a07] ${hi}`}>
+            <BadgeCheck className="h-4 w-4 text-indiagreen" /> {t.verified}
+          </span>
+          <p className={`mt-4 text-base text-slate-600 ${hi}`}>{t.thanksLine}</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy sm:text-5xl">
+            <span className={hi}>{t.congrats}</span> <span className="text-saffron">{name}</span>
+          </h1>
+          <p className={`mx-auto mt-3 max-w-2xl text-slate-700 ${hi}`}>
+            {t.carried(data.bag_quantity, Number(data.waste_kg).toFixed(2))}
+          </p>
+        </section>
 
-        <div className="mx-auto mt-4 flex max-w-3xl flex-wrap items-center justify-center gap-3 text-sm text-slate-400">
-          <button onClick={onCopy} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 hover:bg-white/5">
-            {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} {copied ? t.copied : t.copy}
-          </button>
-          <span className="opacity-40">•</span>
-          <button onClick={() => fire("grand")} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 hover:bg-white/5">
-            <Sparkles className="h-4 w-4 text-gold-light" /> {t.again}
-          </button>
-        </div>
+        {/* Certificate reveal */}
+        <section className="mx-auto max-w-6xl px-2 pt-8 sm:px-6">
+          <div className="relative mx-auto max-w-5xl">
+            <AnimatePresence>
+              {!revealed && (
+                <motion.div key="loader" exit={{ opacity: 0 }} transition={{ duration: 0.4 }}
+                  className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70">
+                  <div className={`flex flex-col items-center gap-3 text-sm font-medium text-navy ${hi}`}>
+                    <span className="h-10 w-10 animate-spin rounded-full border-4 border-navy/20 border-t-navy" />
+                    {lang === "hi" ? "प्रमाण पत्र तैयार हो रहा है…" : "Preparing certificate…"}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-        {/* Details */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={revealed ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.6 }}
-          className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            [t.serial, data.serial_no],
-            [t.issued, formatIssued(data.issued_on)],
-            [t.bags, String(data.bag_quantity)],
-            [t.waste, `${Number(data.waste_kg).toFixed(2)} kg`],
-          ].map(([k, v]) => (
-            <div key={k} className="glass rounded-2xl p-4">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{k}</div>
-              <div className="mt-1 truncate font-semibold text-white">{v}</div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 20 }}
+              animate={revealed ? { opacity: 1, scale: 1, y: 0 } : {}}
+              transition={{ type: "spring", stiffness: 90, damping: 18 }}
+              className="rounded-lg border border-line bg-[#f4f6fa] p-2 shadow-[0_24px_60px_-30px_rgba(11,47,107,.45)] sm:p-3">
+              <div className="overflow-hidden rounded bg-white ring-1 ring-line">
+                <Certificate data={data} verifyUrl={qrUrl} lang={lang} />
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Actions */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={revealed ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.3 }}
+            className={`mx-auto mt-6 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4 ${hi}`}>
+            <button onClick={onDownload} disabled={busy}
+              className="btn-gold flex min-h-12 items-center justify-center gap-2 rounded-md px-4 py-3 font-semibold disabled:opacity-60">
+              <Download className="h-5 w-5" /> {busy ? "…" : t.download}
+            </button>
+            <button onClick={onPrint} disabled={action === "print"} title={lang === "hi" ? "एक A4 पृष्ठ पर प्रिंट करें" : "Print on one A4 landscape page"}
+              className="btn-ghost flex min-h-12 items-center justify-center gap-2 rounded-md px-4 py-3 font-semibold disabled:opacity-60">
+              {action === "print" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} {t.print}
+            </button>
+            <button onClick={onShare} disabled={action === "share"} className="btn-ghost flex min-h-12 items-center justify-center gap-2 rounded-md px-4 py-3 font-semibold disabled:opacity-60">
+              {action === "share" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Share2 className="h-5 w-5" />} {t.share}
+            </button>
+            <a href={whatsappUrl(message)} target="_blank" rel="noopener noreferrer"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-md border border-indiagreen bg-indiagreen px-4 py-3 font-semibold text-white transition hover:bg-[#0f6e06]">
+              <MessageCircle className="h-5 w-5" /> WhatsApp
+            </a>
+          </motion.div>
+
+          <div className={`mx-auto mt-3 flex max-w-3xl flex-wrap items-center justify-center gap-3 text-sm text-slate-600 ${hi}`}>
+            <button onClick={() => copy("link")} className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 hover:bg-[#eef3fb] hover:text-navy">
+              {copied === "link" ? <Check className="h-4 w-4 text-indiagreen" /> : <Copy className="h-4 w-4" />} {copied === "link" ? t.copied : t.copy}
+            </button>
+            <span className="opacity-40">•</span>
+            <button onClick={() => copy("message")} className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 hover:bg-[#eef3fb] hover:text-navy">
+              {copied === "message" ? <Check className="h-4 w-4 text-indiagreen" /> : <MessageCircle className="h-4 w-4" />} {lang === "hi" ? "संदेश कॉपी करें" : "Copy message"}
+            </button>
+            <span className="opacity-40">•</span>
+            <button onClick={() => fire("grand")} className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 hover:bg-[#eef3fb] hover:text-navy">
+              <Sparkles className="h-4 w-4 text-saffron" /> {t.again}
+            </button>
+          </div>
+
+          {/* Details */}
+          <div className="mx-auto mt-10 max-w-4xl">
+            <div className="card overflow-hidden">
+              <h2 className={`bg-navy px-5 py-3 text-base font-bold text-white ${hi}`}>{lang === "hi" ? "प्रमाण पत्र विवरण" : "Certificate details"}</h2>
+              <dl className={`grid grid-cols-2 sm:grid-cols-4 ${hi}`}>
+                {[
+                  [t.serial, data.serial_no],
+                  [t.issued, formatIssued(data.issued_on)],
+                  [t.bags, String(data.bag_quantity)],
+                  [t.waste, `${Number(data.waste_kg).toFixed(2)} kg`],
+                ].map(([k, v], i) => (
+                  <div key={k} className={`border-line p-4 ${i % 2 ? "border-l" : ""} ${i >= 2 ? "border-t sm:border-t-0" : ""} ${i === 2 ? "sm:border-l" : ""}`}>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{k}</dt>
+                    <dd className="mt-1 truncate font-semibold text-ink">{v}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
-          ))}
-        </motion.div>
 
-        {/* Authenticity panel */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={revealed ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.7 }}
-          className="glass mx-auto mt-6 flex max-w-3xl flex-col items-center gap-4 rounded-3xl p-5 sm:flex-row sm:p-6">
-          <div className="shrink-0 rounded-2xl bg-white p-2">
-            <QR value={qrUrl} />
+            {/* Authenticity panel */}
+            <div className="card mt-6 flex flex-col items-center gap-5 p-5 sm:flex-row sm:p-6">
+              <div className="shrink-0 rounded-md border border-line bg-white p-2">
+                <QR value={qrUrl} />
+              </div>
+              <div className="text-center sm:text-left">
+                <p className={`flex items-center justify-center gap-2 font-bold text-navy sm:justify-start ${hi}`}><ShieldCheck className="h-5 w-5 text-indiagreen" /> {t.uniqueQr}</p>
+                <p className="mt-1 text-sm leading-relaxed text-slate-700">
+                  Every certificate carries its own QR code. Anyone who scans it lands on this exact page, and the serial
+                  <b className="font-mono text-navy"> {data.serial_no}</b> is checked live against Nagar Panchayat Kedarnath&apos;s register.
+                  A certificate whose code does not resolve here is not genuine.
+                </p>
+                <p className="mt-2 text-xs text-slate-500">Machine-readable check: <span className="break-all font-mono">{url.replace(/^https?:\/\//, "").replace("/c/", "/api/verify/")}</span></p>
+              </div>
+            </div>
+
+            <p className={`mt-6 text-center text-xs text-slate-500 ${hi}`}>{t.privacy}</p>
           </div>
-          <div className="text-center sm:text-left">
-            <p className="flex items-center justify-center gap-2 font-semibold text-white sm:justify-start"><ShieldCheck className="h-5 w-5 text-emerald-300" /> {t.uniqueQr}</p>
-            <p className="mt-1 text-sm text-slate-300">
-              Every certificate carries its own QR code. Anyone who scans it lands on this exact page, and the serial
-              <b className="font-mono text-gold-light"> {data.serial_no}</b> is checked live against Nagar Panchayat Kedarnath&apos;s register.
-              A certificate whose code does not resolve here is not genuine.
-            </p>
-            <p className="mt-2 text-xs text-slate-500">Machine-readable check: <span className="font-mono">{url.replace(/^https?:\/\//, "").replace("/c/", "/api/verify/")}</span></p>
-          </div>
-        </motion.div>
+        </section>
 
-        <p className="mx-auto mt-10 max-w-2xl text-center font-devanagari text-lg font-bold text-emerald-400">
-          {t.footerSlogan}
-        </p>
-        <p className="mx-auto mb-16 mt-2 max-w-xl text-center text-xs text-slate-500">
-          {t.privacy}
-        </p>
-      </section>
-
-      {/* Unscaled copy used for Print and PDF (kept off-screen) */}
-      <div id="print-root" ref={printRef} aria-hidden
-        style={{ position: "fixed", left: -20000, top: 0, width: 1123, height: 794, background: "#fff" }}>
-        <Certificate data={data} verifyUrl={qrUrl} fit={false} id="print-cert" lang={lang} />
-      </div>
-    </main>
+        {notice && (
+          <p role="status" className={`fixed inset-x-0 bottom-6 z-50 mx-auto w-fit max-w-[90vw] rounded-md border border-emerald-200 bg-white px-4 py-2.5 text-sm font-medium text-emerald-900 shadow-lg ${hi}`}>{notice}</p>
+        )}
+      </main>
+      {/* Unscaled copy used for Print, PDF and the share image. Portalled to <body> so @media print can hide every
+          other body child with display:none — the page then has exactly one A4 sheet to print. */}
+      {mounted && createPortal(
+        <div id="print-root" ref={printRef} aria-hidden
+          style={{ position: "fixed", left: -20000, top: 0, width: 1123, height: 794, background: "#fff" }}>
+          <Certificate data={data} verifyUrl={qrUrl} fit={false} id="print-cert" lang={lang} />
+        </div>,
+        document.body,
+      )}
+      <GovFooter lang={lang} />
+    </>
   );
 }
 

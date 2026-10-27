@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import EmployeesPanel from "@/components/admin/EmployeesPanel";
+import { requireEmployee } from "@/lib/auth-server";
+import { maskEmail, stepUpExpiry } from "@/lib/otp";
 import type { Employee } from "@/lib/types";
 
 export default async function EmployeesPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: me } = await supabase.from("employees").select("*").eq("id", user!.id).single();
-  if (me?.role !== "admin") redirect("/admin");
-  const { data } = await supabase.from("employees").select("*").order("created_at", { ascending: true });
-  return <EmployeesPanel employees={(data ?? []) as Employee[]} meId={user!.id} />;
+  const { supabase, employee: me } = await requireEmployee();
+  if (me.role !== "admin") redirect("/admin");
+  const [{ data }, until] = await Promise.all([
+    supabase.from("employees").select("*").order("created_at", { ascending: true }),
+    stepUpExpiry(me.id),
+  ]);
+  return <EmployeesPanel employees={(data ?? []) as Employee[]} meId={me.id} stepUp={{ until, email: me.email ? maskEmail(me.email) : null }} />;
 }

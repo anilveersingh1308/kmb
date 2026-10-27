@@ -1,10 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Noto_Sans_Devanagari, Noto_Serif, Poppins } from "next/font/google";
 import "./globals.css";
 import { SITE_URL } from "@/lib/types";
 
-// Loaded via <link> rather than next/font: Turbopack's Google-font resolver is unreliable for multi-weight Devanagari.
-const FONTS_HREF =
-  "https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Poppins:wght@400;500;600;700&display=swap";
+// Self-hosted at build time: no third-party request, preloaded, size-adjusted Latin fallbacks.
+// Devanagari subset only — Latin characters in Hindi lines fall back to Poppins. Header bands have fixed heights, so the swap can't shift layout.
+const devanagari = Noto_Sans_Devanagari({ subsets: ["devanagari"], weight: ["400", "600", "700"], variable: "--nf-devanagari", display: "swap" });
+const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--nf-poppins", display: "swap" });
+// Serif is only used on the certificate — don't preload it on every page.
+const serif = Noto_Serif({ subsets: ["latin"], weight: ["400", "700"], style: ["normal", "italic"], variable: "--nf-serif", display: "swap", preload: false });
+
+// Only the non-default sizes (A- = "0", A+ = "2") are ever stored or applied; the default leaves <html> untouched.
+const TEXT_SIZE_BOOT = `try{var z={"0":"87.5%","2":"112.5%"}[localStorage.getItem("cmb_text_size")];if(z)document.documentElement.style.fontSize=z}catch(e){}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -19,26 +26,29 @@ export const metadata: Metadata = {
     siteName: "Carry Me Back · Kedarnath",
     title: "Carry Me Back · कैरी मी बैक",
     description: "A cleanliness movement at 3,583 m. Carry it down. Earn your certificate.",
-    images: [{ url: "/og.svg", width: 1200, height: 630 }],
+    images: [{ url: "/img/og.jpg", width: 1200, height: 630 }],
   },
-  icons: { icon: "/emblem.svg" },
+  icons: { icon: "/uttarakhand-logo.png", apple: "/uttarakhand-logo.png" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#7A1F1F",
+  themeColor: "#0B2F6B",
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hi">
+    // suppressHydrationWarning (applies to these two elements' own attributes only, not their children):
+    // <html> gets an inline font-size from TEXT_SIZE_BOOT before React loads when the visitor chose A-/A+, and
+    // browser extensions (e.g. Liner, data-be-installed) add attributes to <html>/<body>. Neither is a real mismatch.
+    <html lang="hi" className={`${devanagari.variable} ${poppins.variable} ${serif.variable}`} suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="stylesheet" href={FONTS_HREF} />
+        {/* Apply the visitor's saved text size (GovHeader A-/A/A+) before first paint, so the page never resizes after loading. */}
+        <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_BOOT }} />
       </head>
-      <body className="min-h-dvh bg-[#0b0d12] text-slate-100 antialiased">{children}</body>
+      <body className="min-h-dvh bg-white text-ink antialiased" suppressHydrationWarning>{children}</body>
     </html>
   );
 }

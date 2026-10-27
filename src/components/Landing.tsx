@@ -1,265 +1,331 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { motion, useMotionValue, useSpring, useTransform, useInView, useScroll } from "motion/react";
-import { ArrowRight, Leaf, Mountain, Mail, ShieldCheck, Recycle, Award, QrCode, Lock } from "lucide-react";
-import Ambient from "./Ambient";
+import {
+  ArrowRight, ShieldCheck, Megaphone, PackageOpen, Footprints, Recycle, Mail, CheckCircle2, PenLine, QrCode, Hash, FileDown,
+  Phone, MapPin, Building2, Leaf, Mountain, Users, MapPinned,
+} from "lucide-react";
 import Certificate from "./Certificate";
-import LangToggle from "./LangToggle";
-import { useCelebration } from "./celebration";
+import GovHeader from "./GovHeader";
+import GovFooter from "./GovFooter";
+import LiveCounter from "./landing/LiveCounter";
+import VerifyForm from "./landing/VerifyForm";
+import PhotoGallery from "./landing/PhotoGallery";
+import { SITE, HELPLINE } from "@/lib/site-text";
+import { ABOUT, DRIVES, HERO, JOURNEY } from "@/lib/photos";
 import type { Lang } from "@/lib/i18n";
 
 const SAMPLE = { full_name: "Shree Vikram", bag_quantity: 1, waste_kg: 1, serial_no: "CMB-2026-000001", issued_on: new Date().toISOString().slice(0, 10) };
 
-function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-40px" });
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    if (!inView) return;
-    const start = performance.now();
-    const dur = 1600;
-    let raf = 0;
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / dur);
-      setV(Math.round(to * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [inView, to]);
-  return <span ref={ref}>{v.toLocaleString("en-IN")}{suffix}</span>;
-}
-
+/**
+ * Server-rendered landing page. Only small islands hydrate (header, counters, verify form, gallery, sample certificate)
+ * — no animation library on this route.
+ */
 export default function Landing({ counts, lang }: { counts: { certificates: number; bags: number; kg: number }; lang: Lang }) {
-  const fire = useCelebration();
-  const router = useRouter();
-  const [token, setToken] = useState("");
-  const [err, setErr] = useState("");
-
-  // Hero photo parallax
-  const { scrollY } = useScroll();
-  const heroY = useTransform(scrollY, [0, 800], [0, 160]);
-  const heroOpacity = useTransform(scrollY, [0, 600], [1, 0.35]);
-
-  useEffect(() => {
-    const t = setTimeout(() => fire("welcome"), 600);
-    return () => clearTimeout(t);
-  }, [fire]);
-
-  // 3D tilt for the floating certificate
-  const mx = useMotionValue(0), my = useMotionValue(0);
-  const rx = useSpring(useTransform(my, [-0.5, 0.5], [10, -10]), { stiffness: 120, damping: 18 });
-  const ry = useSpring(useTransform(mx, [-0.5, 0.5], [-14, 14]), { stiffness: 120, damping: 18 });
-  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    mx.set((e.clientX - r.left) / r.width - 0.5);
-    my.set((e.clientY - r.top) / r.height - 0.5);
-  };
-
-  const onVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    const m = token.trim().match(/([A-Za-z0-9_-]{20,64})\s*$/);
-    if (!m) { setErr("Paste the full certificate link or its code from your email."); return; }
-    setErr("");
-    router.push(`/c/${m[1]}`);
-  };
+  const t = SITE[lang];
+  const hi = lang === "hi" ? "font-devanagari" : "";
+  const cap = (p: { hi: string; en: string }) => (lang === "hi" ? p.hi : p.en);
+  const stepIcons = [PackageOpen, Footprints, Recycle, Mail];
+  const certIcons = [PenLine, QrCode, Hash, FileDown];
 
   return (
-    <main className="relative overflow-x-hidden">
-      <Ambient />
+    <>
+      <GovHeader lang={lang} active="home" />
 
-      {/* Kedarnath hero photograph — slow Ken Burns zoom + scroll parallax */}
-      <motion.div aria-hidden style={{ y: heroY, opacity: heroOpacity }} className="pointer-events-none absolute inset-x-0 top-0 -z-[5] h-[115vh] overflow-hidden">
-        <motion.div initial={{ scale: 1.08 }} animate={{ scale: 1.18 }} transition={{ duration: 28, ease: "linear", repeat: Infinity, repeatType: "reverse" }} className="absolute inset-0">
-          <Image src="/kedarnath.jpg" alt="" fill priority sizes="100vw" className="object-cover object-[50%_35%]" />
-        </motion.div>
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,13,18,.55)_0%,rgba(11,13,18,.35)_30%,rgba(11,13,18,.75)_70%,#0b0d12_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(201,166,75,.18),transparent_55%)]" />
-      </motion.div>
-
-      {/* NAV */}
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/emblem.svg" alt="" className="h-11 w-11 drop-shadow-[0_0_14px_rgba(201,166,75,.55)]" />
-          <div className="leading-tight">
-            <div className="font-devanagari text-sm font-bold">नगर पंचायत केदारनाथ</div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-slate-300">Carry Me Back</div>
+      {/* Notice board */}
+      <div className="border-b border-line bg-[#fff7ef]">
+        <div className={`mx-auto flex max-w-7xl items-stretch px-0 sm:px-6 ${hi}`}>
+          <div className="flex shrink-0 items-center gap-1.5 bg-saffron px-3 py-2 text-xs font-bold uppercase tracking-wide text-white sm:text-sm">
+            <Megaphone className="h-4 w-4" /> {t.latest}
           </div>
-        </Link>
-        <div className="flex items-center gap-2 text-sm">
-          <a href="#how" className="hidden rounded-full px-3 py-2 text-slate-300 hover:text-white sm:inline">How it works</a>
-          <a href="#verify" className="hidden rounded-full px-3 py-2 text-slate-300 hover:text-white sm:inline">Verify</a>
-          <LangToggle lang={lang} />
-          <Link href="/admin/login" className="btn-ghost inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-semibold">
-            <Lock className="h-4 w-4" /> Staff
-          </Link>
+          <div className="marquee relative min-w-0 flex-1 overflow-hidden" tabIndex={0} aria-label={t.latest}>
+            <div className="marquee-track whitespace-nowrap py-2 text-sm text-slate-800">
+              {[...t.notices, ...t.notices].map((n, i) => (
+                <span key={i} className="mx-6 inline-flex items-center gap-2" aria-hidden={i >= t.notices.length}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-indiagreen" /> {n}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
-      </nav>
+      </div>
 
-      {/* HERO */}
-      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-8 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-16">
-        <div>
-          <motion.span initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="glass inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold text-gold-light">
-            <Mountain className="h-4 w-4" /> Kedarnath Dham · 3,583 m · Rudraprayag, Uttarakhand
-          </motion.span>
-          <motion.h1 initial={{ opacity: 0, y: 24, filter: "blur(8px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.9, delay: 0.1 }}
-            className="mt-5 text-5xl font-bold leading-[1.02] tracking-tight sm:text-7xl">
-            <span className="text-gold-shimmer">Carry Me Back.</span>
-            <br />
-            <span className="font-devanagari text-white">कैरी मी बैक</span>
-          </motion.h1>
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.9 }}
-            className="mt-6 max-w-xl text-lg text-slate-300">
-            Every pilgrim descending from Baba Kedar&apos;s abode carries one 1&nbsp;kg bag of dry waste down the trail. Deposit it at our collection centre and receive a personalised
-            <b className="text-white"> Certificate of Appreciation (प्रशस्ति पत्र)</b> — instantly, by email, free.
-          </motion.p>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="mt-8 flex flex-wrap gap-3">
-            <a href="#verify" className="btn-gold inline-flex items-center gap-2 rounded-2xl px-6 py-3.5 font-semibold">
-              View my certificate <ArrowRight className="h-5 w-5" />
-            </a>
-            <a href="#how" className="btn-ghost inline-flex items-center gap-2 rounded-2xl px-6 py-3.5 font-semibold">How it works</a>
-          </motion.div>
+      <main id="main">
+        {/* HERO */}
+        <section className="bg-[linear-gradient(180deg,#f4f6fa_0%,#ffffff_100%)]">
+          <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_1.05fr] lg:py-14">
+            <div className={hi}>
+              <p className="inline-flex items-center gap-2 rounded-full border border-saffron/40 bg-white px-3 py-1 text-xs font-semibold text-[#b4520a]">
+                <Mountain className="h-3.5 w-3.5" /> {lang === "hi" ? "केदारनाथ धाम · 3,583 मीटर · रुद्रप्रयाग" : "Kedarnath Dham · 3,583 m · Rudraprayag"}
+              </p>
+              <p className="mt-5 text-base font-semibold text-indiagreen">{t.heroKicker}</p>
+              <h1 className="mt-2 text-4xl font-bold leading-tight text-navy sm:text-5xl">{t.heroTitle}</h1>
+              <p className="mt-2 font-sans text-2xl font-bold text-saffron sm:text-3xl">({t.heroLatin})</p>
+              <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">{t.heroBody}</p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <a href="#verify" className="btn-gold inline-flex items-center gap-2 rounded-md px-5 py-3 font-semibold">
+                  <ShieldCheck className="h-5 w-5" /> {t.ctaVerify}
+                </a>
+                <a href="#how" className="btn-ghost inline-flex items-center gap-2 rounded-md px-5 py-3 font-semibold">
+                  {t.ctaHow} <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
+              <a href={`tel:+91${HELPLINE}`} className="mt-6 inline-flex items-center gap-2 text-sm text-slate-700">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indiagreen text-white"><Phone className="h-4 w-4" /></span>
+                {t.contact.helpline}: <b className="text-navy">{HELPLINE}</b>
+              </a>
+            </div>
+            <figure className="relative">
+              <div className="relative aspect-[16/11] overflow-hidden rounded-lg border border-line bg-[#e9eef5] shadow-[0_20px_50px_-25px_rgba(11,47,107,.45)]">
+                {/* LCP element: preloaded at high priority; the blur placeholder paints instantly */}
+                <Image src={HERO.src} alt={cap(HERO)} fill priority placeholder="blur" sizes="(max-width: 1024px) 100vw, 640px"
+                  style={{ objectPosition: HERO.pos }} className="object-cover" />
+              </div>
+              <figcaption className={`absolute -bottom-4 left-4 right-4 rounded-md border-l-4 border-saffron bg-white px-4 py-2.5 text-sm font-semibold text-navy shadow-md sm:left-6 sm:right-auto ${hi}`}>
+                {t.aboutSlogan}
+              </figcaption>
+            </figure>
+          </div>
+        </section>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mt-10 grid max-w-xl grid-cols-3 gap-3">
-            {[
-              [counts.bags, "bags carried back", ""],
-              [counts.kg, "kg of waste removed", ""],
-              [counts.certificates, "certificates issued", ""],
-            ].map(([n, label]) => (
-              <div key={label as string} className="glass rounded-2xl p-4">
-                <div className="text-2xl font-bold text-white sm:text-3xl"><Counter to={Number(n)} /></div>
-                <div className="mt-1 text-[11px] uppercase tracking-[0.14em] text-slate-400">{label as string}</div>
+        {/* STATS */}
+        <section aria-label={t.stats.live} className="mx-auto max-w-7xl px-4 pt-10 sm:px-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {([
+              [counts.bags, t.stats.bags, "border-t-saffron", Recycle],
+              [counts.kg, t.stats.kg, "border-t-navy", Leaf],
+              [counts.certificates, t.stats.certs, "border-t-indiagreen", CheckCircle2],
+            ] as const).map(([n, label, border, Icon]) => (
+              <div key={label} className={`card flex items-center gap-4 border-t-4 p-5 ${border}`}>
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eef3fb] text-navy"><Icon className="h-6 w-6" /></span>
+                <div>
+                  <div className="text-3xl font-bold text-navy"><LiveCounter to={Number(n)} /></div>
+                  <div className={`text-sm text-slate-600 ${hi}`}>{label}</div>
+                </div>
               </div>
             ))}
-          </motion.div>
-        </div>
+          </div>
+          <p className={`mt-2 flex items-center gap-1.5 text-xs text-slate-500 ${hi}`}>
+            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indiagreen opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-indiagreen" /></span>
+            {t.stats.live}
+          </p>
+        </section>
 
-        {/* Floating 3D certificate preview */}
-        <motion.div initial={{ opacity: 0, x: 60, rotateY: -20 }} animate={{ opacity: 1, x: 0, rotateY: 0 }} transition={{ type: "spring", stiffness: 60, damping: 16, delay: 0.3 }}
-          onMouseMove={onMove} onMouseLeave={() => { mx.set(0); my.set(0); }}
-          style={{ perspective: 1400 }} className="relative mx-auto w-full max-w-xl">
-          <motion.div style={{ rotateX: rx, rotateY: ry, transformStyle: "preserve-3d" }} className="animate-float">
-            <div className="pointer-events-none absolute -inset-3 -z-10 rounded-3xl bg-[conic-gradient(from_180deg,#c9a64b,#f3e4a8,#7a1f1f,#1e7b34,#c9a64b)] opacity-40 blur-2xl" />
-            <div className="overflow-hidden rounded-xl bg-white shadow-[0_50px_120px_-30px_rgba(201,166,75,.6)]">
-              <Certificate data={SAMPLE} verifyUrl="https://carrymeback.in/c/sample?via=qr" lang={lang} />
+        {/* ABOUT */}
+        <section id="about" className={`cv-section mx-auto max-w-7xl scroll-mt-16 px-4 py-14 sm:px-6 ${hi}`}>
+          <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+            <div>
+              <h2 className="section-title text-3xl">{t.aboutTitle}</h2>
+              {t.aboutBody.map((p) => <p key={p} className="mt-5 leading-relaxed text-slate-700">{p}</p>)}
+              <ul className="mt-6 grid gap-3 sm:grid-cols-3">
+                {t.aboutPoints.map((p, i) => {
+                  const I = [Mountain, Leaf, Users][i];
+                  return (
+                    <li key={p} className="card flex items-start gap-3 p-4 text-sm font-medium text-slate-800">
+                      <I className="mt-0.5 h-5 w-5 shrink-0 text-indiagreen" /> {p}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                {[ABOUT.team, ABOUT.story].map((p) => (
+                  <figure key={p.src.src} className="overflow-hidden rounded-lg border border-line bg-white">
+                    <div className="relative aspect-[4/3] bg-[#e9eef5]">
+                      <Image src={p.src} alt={cap(p)} fill placeholder="blur" sizes="(max-width: 640px) 100vw, 380px" style={{ objectPosition: p.pos }} className="object-cover" />
+                    </div>
+                    <figcaption className="px-3 py-2 text-xs text-slate-600">{cap(p)}</figcaption>
+                  </figure>
+                ))}
+              </div>
             </div>
-            <div className="pointer-events-none absolute inset-0 rounded-xl bg-[linear-gradient(115deg,transparent_30%,rgba(255,255,255,.35)_45%,transparent_60%)] bg-[length:250%_100%] animate-shimmer" />
-          </motion.div>
-          <div className="glass absolute -bottom-5 left-1/2 -translate-x-1/2 rounded-full px-4 py-2 text-xs text-slate-200">
-            Your name goes here · <span className="text-gold-light">Personalised for every pilgrim</span>
+            <figure className="card self-start overflow-hidden">
+              <div className="border-b border-line bg-[#eef3fb] px-4 py-2.5 text-sm font-bold text-navy">{lang === "hi" ? "अभियान पोस्टर" : "Campaign poster"}</div>
+              <Image src={ABOUT.poster.src} alt={cap(ABOUT.poster)} placeholder="blur" sizes="(max-width: 1024px) 100vw, 460px" className="h-auto w-full" />
+            </figure>
           </div>
-        </motion.div>
-      </section>
+        </section>
 
-      {/* THE TRAIL — photo feature */}
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.8 }}
-          className="relative overflow-hidden rounded-[2rem] border border-white/10 shadow-[0_40px_120px_-40px_rgba(0,0,0,.9)]">
-          <div className="relative h-[420px] sm:h-[520px]">
-            <Image src="/kedarnath-trail.jpg" alt="Pilgrims walking the stone-paved trail to Kedarnath below snow-covered peaks" fill sizes="(max-width: 1280px) 100vw, 1280px" className="object-cover" />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,13,18,.92)_0%,rgba(11,13,18,.6)_45%,rgba(11,13,18,.15)_100%)]" />
-            <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(11,13,18,.8)_0%,transparent_40%)]" />
-          </div>
-          <div className="absolute inset-0 flex flex-col justify-end p-6 sm:justify-center sm:p-12">
-            <p className="font-devanagari text-gold-light">16 किलोमीटर · 3,583 मीटर</p>
-            <h2 className="mt-2 max-w-xl text-3xl font-bold leading-tight text-white sm:text-5xl">
-              Sixteen kilometres of faith.<br /><span className="text-gold-shimmer">One kilogram of responsibility.</span>
-            </h2>
-            <p className="mt-4 max-w-lg text-slate-200">
-              Every season, lakhs of pilgrims climb from Gaurikund to Baba Kedar&apos;s door. Everything that goes up must come down the same stone path —
-              on a mule, on a porter&apos;s back, or in your hand. Carry Me Back makes that last option an honour.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a href="#how" className="btn-gold inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-semibold">See how it works <ArrowRight className="h-4 w-4" /></a>
-              <a href="#verify" className="btn-ghost inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-semibold">Verify a certificate</a>
+        {/* HOW */}
+        <section id="how" className={`cv-section scroll-mt-16 bg-[#f4f6fa] py-14 ${hi}`}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="text-center">
+              <h2 className="section-title center inline-block text-3xl">{t.howTitle}</h2>
+              <p className="mt-3 text-slate-600">{t.howSub}</p>
             </div>
+            <ol className="relative mt-10 grid gap-6 md:grid-cols-4">
+              <div aria-hidden className="absolute left-[12.5%] right-[12.5%] top-7 hidden border-t-2 border-dashed border-navy/30 md:block" />
+              {t.steps.map(([title, body], i) => {
+                const I = stepIcons[i];
+                return (
+                  <li key={title} className="relative text-center">
+                    <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-navy text-white shadow-md">
+                      <I className="h-6 w-6" />
+                      <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-saffron font-sans text-xs font-bold">{i + 1}</span>
+                    </div>
+                    <div className="card mt-4 h-[calc(100%-4.5rem)] p-5">
+                      <h3 className="font-bold text-navy">{title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-700">{body}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
-        </motion.div>
-      </section>
+        </section>
 
-      {/* WHY */}
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          {[
-            [Recycle, "Tourism leaves a footprint", "Lakhs of pilgrims each season generate tonnes of dry waste at 3,500 m where there are no roads. It must come down on someone's back."],
-            [Leaf, "Fragile Himalayan ecology", "Plastic in the Mandakini valley harms glaciers, wildlife and the water millions drink downstream."],
-            [Award, "Recognition, not lectures", "One small act — carrying 1 kg down — earns a certificate from Nagar Panchayat Kedarnath you'll be proud to share."],
-          ].map(([Icon, title, body], i) => {
-            const I = Icon as typeof Leaf;
-            return (
-              <motion.div key={title as string} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ delay: i * 0.1 }}
-                className="glass group relative overflow-hidden rounded-3xl p-6">
-                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gold/10 blur-2xl transition group-hover:bg-gold/25" />
-                <I className="h-8 w-8 text-gold-light" />
-                <h3 className="mt-4 text-lg font-bold text-white">{title as string}</h3>
-                <p className="mt-2 text-sm text-slate-300">{body as string}</p>
-              </motion.div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* HOW */}
-      <section id="how" className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <div className="text-center">
-          <p className="font-devanagari text-gold-light">यह कैसे काम करता है</p>
-          <h2 className="mt-2 text-3xl font-bold text-white sm:text-5xl">Four steps. One cleaner mountain.</h2>
-        </div>
-        <ol className="mt-12 grid gap-6 md:grid-cols-4">
-          {[
-            ["01", Mountain, "Collect your bag at the top", "Volunteers near the temple hand descending pilgrims a sealed 1 kg bag of segregated dry waste with a unique bag number."],
-            ["02", Recycle, "Carry it down the trail", "16 km of sacred path. Your bag rides with you — a small weight, a big statement."],
-            ["03", QrCode, "Deposit at the collection centre", "Our team scans the bag, records your name, phone and email in seconds."],
-            ["04", Mail, "Receive your certificate", "An email with a private link opens your personalised प्रशस्ति पत्र — download, print or share it instantly."],
-          ].map(([n, Icon, title, body], i) => {
-            const I = Icon as typeof Leaf;
-            return (
-              <motion.li key={n as string} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ delay: i * 0.12 }}
-                className="glass relative rounded-3xl p-6">
-                <div className="absolute right-5 top-4 text-5xl font-bold text-white/5">{n as string}</div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-light to-gold-dark text-[#2b1d05]">
-                  <I className="h-6 w-6" />
+        {/* JOURNEY — where the waste goes */}
+        <section className={`cv-section mx-auto max-w-7xl px-4 py-14 sm:px-6 ${hi}`}>
+          <h2 className="section-title text-3xl">{t.journeyTitle}</h2>
+          <p className="mt-3 max-w-3xl text-slate-600">{t.journeySub}</p>
+          <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {JOURNEY.map((p, i) => (
+              <li key={p.src.src} className="card group relative flex flex-col">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-t-[inherit] bg-[#e9eef5]">
+                  <Image src={p.src} alt={cap(p)} fill placeholder="blur" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 250px"
+                    style={{ objectPosition: p.pos }} className="object-cover transition duration-500 group-hover:scale-[1.04]" />
+                  <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-saffron font-sans text-xs font-bold text-white shadow">{i + 1}</span>
                 </div>
-                <h3 className="mt-4 font-bold text-white">{title as string}</h3>
-                <p className="mt-2 text-sm text-slate-300">{body as string}</p>
-              </motion.li>
-            );
-          })}
-        </ol>
-      </section>
+                <div className="flex-1 p-4">
+                  <h3 className="font-bold text-navy">{lang === "hi" ? p.titleHi : p.titleEn}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-700">{cap(p)}</p>
+                </div>
+                {i < JOURNEY.length - 1 && (
+                  <ArrowRight aria-hidden className="absolute -right-3.5 top-[calc(37.5%-0.75rem)] z-10 hidden h-6 w-6 rounded-full border border-line bg-white p-1 text-navy shadow-sm lg:block" />
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
 
-      {/* VERIFY */}
-      <section id="verify" className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
-          className="glass relative overflow-hidden rounded-3xl p-8 text-center">
-          <div className="absolute -top-20 left-1/2 h-40 w-[120%] -translate-x-1/2 rounded-full bg-gold/15 blur-3xl" />
-          <ShieldCheck className="mx-auto h-10 w-10 text-emerald-400" />
-          <h2 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Open or verify a certificate</h2>
-          <p className="mt-2 text-sm text-slate-300">Paste the link from your email (or the code at the end of it). No login, no app.</p>
-          <form onSubmit={onVerify} className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <input value={token} onChange={(e) => setToken(e.target.value)} className="input flex-1" placeholder="https://…/c/AbC123…  or  AbC123…" aria-label="Certificate link or code" />
-            <button className="btn-gold rounded-2xl px-6 py-3 font-semibold">Open</button>
-          </form>
-          {err && <p className="mt-3 text-sm text-rose-300">{err}</p>}
-        </motion.div>
-      </section>
+        {/* CERTIFICATE */}
+        <section className={`cv-section bg-[#f4f6fa] py-14 ${hi}`}>
+          <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <h2 className="section-title text-3xl">{t.certTitle}</h2>
+              <p className="mt-5 leading-relaxed text-slate-700">{t.certBody}</p>
+              <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+                {t.certPoints.map(([title, body], i) => {
+                  const I = certIcons[i];
+                  return (
+                    <li key={title} className="card flex gap-3 p-4">
+                      <I className="mt-0.5 h-5 w-5 shrink-0 text-saffron" />
+                      <div>
+                        <div className="text-sm font-bold text-navy">{title}</div>
+                        <div className="mt-0.5 text-sm text-slate-600">{body}</div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <figure>
+              <div className="rounded-lg border border-line bg-white p-3 shadow-[0_20px_50px_-25px_rgba(11,47,107,.4)] sm:p-4">
+                <div className="overflow-hidden rounded ring-1 ring-line">
+                  <Certificate data={SAMPLE} verifyUrl="https://carrymeback.in/c/sample?via=qr" lang={lang} />
+                </div>
+              </div>
+              <figcaption className="mt-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">{t.sampleNote}</figcaption>
+            </figure>
+          </div>
+        </section>
 
-      {/* FOOTER */}
-      <footer className="mx-auto max-w-7xl px-4 pb-10 pt-6 text-center sm:px-6">
-        <p className="font-devanagari text-xl font-bold text-emerald-400">स्वच्छ केदारनाथ · सुंदर केदारनाथ</p>
-        <p className="mt-2 text-xs text-slate-500">
-          © {new Date().getFullYear()} कार्यालय नगर पंचायत केदारनाथ, रुद्रप्रयाग (उत्तराखंड) · In collaboration with Nagar Panchayat, Healing Himalayas, and Sulabh International.
-        </p>
-        <p className="mt-3 text-[10px] text-slate-600">
-          Photos: “Kedar peak behind Kedarnath temple” by Ankitsingh123 · “Way to Kedarnath Peak” by Shainy Omer — Wikimedia Commons, CC BY-SA 4.0.
-        </p>
-      </footer>
-    </main>
+        {/* DRIVES */}
+        <section className={`cv-section mx-auto max-w-7xl px-4 py-14 sm:px-6 ${hi}`}>
+          <h2 className="section-title text-3xl">{t.drivesTitle}</h2>
+          <p className="mt-3 max-w-3xl text-slate-600">{t.drivesSub}</p>
+          <div className="mt-8 grid gap-3 md:grid-cols-4 md:grid-rows-2">
+            {DRIVES.map((p, i) => (
+              <figure key={p.src.src} className={`group relative overflow-hidden rounded-lg border border-line bg-[#e9eef5] ${i === 0 ? "aspect-[4/3] md:col-span-2 md:row-span-2 md:aspect-auto" : "aspect-[4/3]"}`}>
+                <Image src={p.src} alt={cap(p)} fill placeholder="blur"
+                  sizes={i === 0 ? "(max-width: 768px) 100vw, 640px" : "(max-width: 768px) 100vw, 320px"}
+                  style={{ objectPosition: p.pos }} className="object-cover transition duration-500 group-hover:scale-[1.03]" />
+                {p.geo && (
+                  <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 font-sans text-[11px] font-semibold text-indiagreen shadow-sm">
+                    <MapPinned className="h-3 w-3" /> {t.drivesGeo} · {p.geo}
+                  </span>
+                )}
+                <figcaption className={`absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(11,31,64,.85),transparent)] px-3 pb-2.5 pt-8 font-medium text-white ${i === 0 ? "text-sm sm:text-base" : "text-xs"}`}>
+                  {cap(p)}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+
+        {/* GALLERY */}
+        <section id="gallery" className={`cv-section scroll-mt-16 bg-[#f4f6fa] py-14 ${hi}`}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <h2 className="section-title text-3xl">{t.galleryTitle}</h2>
+            <p className="mt-3 text-slate-600">{t.gallerySub}</p>
+            <PhotoGallery lang={lang} />
+          </div>
+        </section>
+
+        {/* VERIFY */}
+        <section id="verify" className={`mx-auto max-w-4xl scroll-mt-16 px-4 py-14 sm:px-6 ${hi}`}>
+          <div className="card overflow-hidden">
+            <div className="flex items-center gap-3 bg-navy px-6 py-4 text-white">
+              <ShieldCheck className="h-7 w-7 text-[#7fd17a]" />
+              <h2 className="text-xl font-bold sm:text-2xl">{t.verifyTitle}</h2>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-700">{t.verifyBody}</p>
+              <VerifyForm title={t.verifyTitle} placeholder={t.verifyPlaceholder} button={t.verifyBtn} error={t.verifyErr} />
+              <p id="verify-hint" className="mt-4 flex items-start gap-2 rounded-md bg-[#eef8ee] px-3 py-2.5 text-sm text-[#0e5a07]">
+                <QrCode className="mt-0.5 h-4 w-4 shrink-0" /> {t.verifyHint}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* PARTNERS + CONTACT */}
+        <section id="contact" className={`cv-section scroll-mt-16 border-t border-line bg-white ${hi}`}>
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2">
+            <div>
+              <h2 className="section-title text-3xl">{t.partnersTitle}</h2>
+              <ul className="mt-8 grid gap-4 sm:grid-cols-3">
+                {t.partners.map(([name, role], i) => (
+                  <li key={name} className="card flex flex-col items-center p-5 text-center">
+                    <div className="flex h-20 items-center justify-center">
+                      {i === 0 && <Image src="/img/uttarakhand.webp" alt="" width={72} height={73} className="h-[72px] w-[71px] object-contain" />}
+                      {i === 1 && <Image src="/img/healing-himalayas.webp" alt="" width={72} height={72} className="h-[72px] w-[72px] object-contain" />}
+                      {i === 2 && <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#eef8ee] text-indiagreen"><Building2 className="h-8 w-8" /></span>}
+                    </div>
+                    <div className="mt-3 font-bold text-navy">{name}</div>
+                    <div className="text-xs text-slate-500">{role}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h2 className="section-title text-3xl">{t.contactTitle}</h2>
+              <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+                <ContactCard icon={Building2} title={t.contact.office} body={t.contact.officeAddr} />
+                <ContactCard icon={Phone} title={`${t.contact.helpline}: ${HELPLINE}`} body={t.contact.helplineNote} href={`tel:+91${HELPLINE}`} />
+                <ContactCard icon={PackageOpen} title={t.contact.mrf} body={t.contact.mrfAddr} />
+                <ContactCard icon={MapPin} title={t.contact.booth} body={t.contact.boothAddr} />
+              </ul>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <GovFooter lang={lang} />
+    </>
+  );
+}
+
+function ContactCard({ icon: I, title, body, href }: { icon: typeof Phone; title: string; body: string; href?: string }) {
+  const inner = (
+    <>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff1e5] text-saffron"><I className="h-5 w-5" /></span>
+      <div>
+        <div className="font-bold text-navy">{title}</div>
+        <div className="mt-0.5 text-sm text-slate-600">{body}</div>
+      </div>
+    </>
+  );
+  return (
+    <li className="card">
+      {href ? <a href={href} className="flex gap-3 p-4 hover:bg-[#f4f6fa]">{inner}</a> : <div className="flex gap-3 p-4">{inner}</div>}
+    </li>
   );
 }

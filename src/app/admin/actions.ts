@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireEmployee } from "@/lib/auth-server";
 import { sendCertificateEmail, sendTestEmail as sendTest } from "@/lib/email";
 import { participantSchema, zodFieldErrors, type ParticipantInput } from "@/lib/validation";
 import type { Employee, EmailSettings, NotificationSettings } from "@/lib/types";
@@ -18,18 +19,6 @@ export interface IssueResult {
   /** Same phone/email seen in the last 24 h — operator must confirm with `force`. */
   duplicates?: DuplicateHit[];
   record?: { id: string; certificate_id: string; serial_no: string; token: string; email_status: string; full_name: string };
-}
-
-async function requireEmployee(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; employee: Employee }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/admin/login");
-  const { data: employee } = await supabase.from("employees").select("*").eq("id", user.id).single();
-  if (!employee || !employee.is_active) {
-    await supabase.auth.signOut();
-    redirect("/admin/login?reason=inactive");
-  }
-  return { supabase, employee: employee as Employee };
 }
 
 export async function issueCertificate(input: ParticipantInput, opts: { force?: boolean } = {}): Promise<IssueResult> {
@@ -131,48 +120,8 @@ export async function createEmployee(form: FormData) {
   return { ok: true };
 }
 
-export async function updateEmployeeEmail(id: string, email: string) {
-  const { employee } = await requireEmployee();
-  if (employee.role !== "admin") return { ok: false, error: "Admins only" };
-  const parsed = z.string().trim().toLowerCase().email().safeParse(email);
-  if (!parsed.success) return { ok: false, error: "Invalid email" };
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.updateUserById(id, { email: parsed.data, email_confirm: true });
-  if (error) return { ok: false, error: error.message };
-  const { error: e2 } = await admin.from("employees").update({ email: parsed.data }).eq("id", id);
-  revalidatePath("/admin/employees");
-  return { ok: !e2, error: e2?.message };
-}
 
-export async function setEmployeeActive(id: string, active: boolean) {
-  const { employee } = await requireEmployee();
-  if (employee.role !== "admin") return { ok: false, error: "Admins only" };
-  if (id === employee.id) return { ok: false, error: "You cannot deactivate yourself" };
-  const admin = createAdminClient();
-  const { error } = await admin.from("employees").update({ is_active: active }).eq("id", id);
-  revalidatePath("/admin/employees");
-  return { ok: !error, error: error?.message };
-}
 
-export async function resetEmployeePassword(id: string, password: string) {
-  const { employee } = await requireEmployee();
-  if (employee.role !== "admin") return { ok: false, error: "Admins only" };
-  if (password.length < 8) return { ok: false, error: "Minimum 8 characters" };
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.updateUserById(id, { password });
-  return { ok: !error, error: error?.message };
-}
-
-/** Any signed-in employee may change their own password. */
-export async function changeOwnPassword(current: string, next: string) {
-  const { supabase, employee } = await requireEmployee();
-  if (next.length < 8) return { ok: false, error: "Minimum 8 characters" };
-  const email = employee.email ?? `${employee.employee_id.toLowerCase()}@npk.local`;
-  const { error: check } = await supabase.auth.signInWithPassword({ email, password: current });
-  if (check) return { ok: false, error: "Current password is incorrect" };
-  const { error } = await supabase.auth.updateUser({ password: next });
-  return { ok: !error, error: error?.message };
-}
 
 // ---------------- Settings (admin only) ----------------
 const emailList = z.string().transform((s) => s.split(/[,\s;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean))

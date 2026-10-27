@@ -64,7 +64,7 @@ export interface ParticipantRecord {
   full_name: string;
   email: string | null;
   phone: string | null;
-  bag_number: string;
+  bag_number: string | null;
   bag_quantity: number;
   waste_kg: number;
   inventory_items: string[];
@@ -95,6 +95,17 @@ export interface Totals {
 }
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-export const certificateUrl = (token: string) => `${SITE_URL}/c/${token}`;
+
+/**
+ * Address used in anything that leaves this device — share/WhatsApp messages, emails, printed QR codes.
+ * Local development shares the production database, so a localhost link would be useless to anyone else:
+ * fall back to the public site (override with NEXT_PUBLIC_PUBLIC_URL).
+ */
+const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/i.test(u);
+export const PUBLIC_URL = (isLocal(SITE_URL)
+  ? process.env.NEXT_PUBLIC_PUBLIC_URL ?? "https://carry-me-back-kedarnath.vercel.app"
+  : SITE_URL).replace(/\/$/, "");
+
+export const certificateUrl = (token: string) => `${PUBLIC_URL}/c/${token}`;
 /** URL encoded in the printed QR code; `via=qr` triggers the authenticity banner. */
-export const qrVerifyUrl = (token: string) => `${SITE_URL}/c/${token}?via=qr`;
+export const qrVerifyUrl = (token: string) => `${PUBLIC_URL}/c/${token}?via=qr`;

@@ -6,7 +6,6 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { Lock, LogIn, Eye, EyeOff, KeyRound, Mail, ArrowLeft, ShieldCheck, Timer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import Ambient from "@/components/Ambient";
 import { requestLoginCode, verifyLoginCode } from "./actions";
 
 type Mode = "password" | "otp";
@@ -31,6 +30,8 @@ export default function LoginForm() {
   // OTP state
   const [otpEmail, setOtpEmail] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [sentAt, setSentAt] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
 
@@ -85,6 +86,8 @@ export default function LoginForm() {
     setBusy(false);
     if (!res.ok) { setError(res.error ?? "Could not send the code."); return; }
     setOtpEmail(res.masked ?? identifier);
+    setSentAt(res.sentAt ?? "");
+    setCode("");
     setCooldown(60);
     setTimeout(() => codeRef.current?.focus(), 50);
   };
@@ -97,6 +100,8 @@ export default function LoginForm() {
     setBusy(true);
     const res = await verifyLoginCode(identifier, token);
     if (!res.ok) { setBusy(false); setError(res.error ?? "Incorrect or expired code."); return; }
+    // The portal can take a few seconds to load on a cold start — say so instead of looking stuck.
+    setAccepted(true);
     const next = params.get("next");
     router.replace(next && next.startsWith("/admin") ? next : "/admin");
     router.refresh();
@@ -105,28 +110,34 @@ export default function LoginForm() {
   const maskedEmail = otpEmail ?? "";
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center px-4 py-10">
-      <Ambient intensity={0.6} />
+    <main className="relative flex min-h-dvh flex-col bg-[#f4f6fa]">
+      <div className="bg-navy text-white">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-1.5 text-xs">
+          <span><span className="font-devanagari font-semibold">उत्तराखण्ड सरकार</span> <span className="opacity-60">|</span> Government of Uttarakhand</span>
+          <Link href="/" className="hover:underline">← Back to website</Link>
+        </div>
+      </div>
+      <div className="tricolor" />
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
       <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 90, damping: 16 }}
-        className="glass relative w-full max-w-md overflow-hidden rounded-3xl p-8">
-        <div className="absolute -top-24 left-1/2 h-48 w-[130%] -translate-x-1/2 rounded-full bg-maroon/40 blur-3xl" />
-        <Link href="/" className="relative flex items-center gap-3">
+        className="glass relative w-full max-w-md overflow-hidden rounded-lg p-8">
+                <Link href="/" className="relative flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/emblem.svg" alt="" className="h-12 w-12" />
+          <img src="/img/uttarakhand.webp" alt="" className="h-14 w-14 object-contain" />
           <div className="leading-tight">
-            <div className="font-devanagari text-sm font-bold">नगर पंचायत केदारनाथ</div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-slate-300">Carry Me Back · Staff</div>
+            <div className="font-devanagari text-base font-bold text-navy">नगर पंचायत केदारनाथ</div>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-slate-700">Carry Me Back · Staff</div>
           </div>
         </Link>
-        <h1 className="relative mt-6 flex items-center gap-2 text-2xl font-bold text-white"><Lock className="h-5 w-5 text-gold-light" /> Employee sign in</h1>
-        <p className="relative mt-1 text-sm text-slate-400">Use your Employee ID or registered email.</p>
+        <h1 className="relative mt-6 flex items-center gap-2 text-2xl font-bold text-ink"><Lock className="h-5 w-5 text-navy" /> Employee sign in</h1>
+        <p className="relative mt-1 text-sm text-slate-600">Use your Employee ID or registered email.</p>
 
         {/* Mode switch */}
-        <div className="relative mt-5 grid grid-cols-2 rounded-2xl bg-white/5 p-1 text-sm font-semibold">
+        <div className="relative mt-5 grid grid-cols-2 rounded-md bg-slate-50 p-1 text-sm font-semibold">
           {(["password", "otp"] as Mode[]).map((m) => (
             <button key={m} type="button" onClick={() => { setMode(m); setError(""); setOtpEmail(null); setCode(""); }}
-              className={`relative flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 transition ${mode === m ? "text-[#2b1d05]" : "text-slate-300 hover:text-white"}`}>
-              {mode === m && <motion.span layoutId="mode" className="absolute inset-0 rounded-xl bg-gradient-to-br from-gold-light to-gold-dark" transition={{ type: "spring", stiffness: 400, damping: 30 }} />}
+              className={`relative flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 transition ${mode === m ? "text-white" : "text-slate-700 hover:text-navy"}`}>
+              {mode === m && <motion.span layoutId="mode" className="absolute inset-0 rounded-xl bg-navy" transition={{ type: "spring", stiffness: 400, damping: 30 }} />}
               <span className="relative flex items-center gap-2">{m === "password" ? <><KeyRound className="h-4 w-4" /> Password</> : <><Mail className="h-4 w-4" /> Email code</>}</span>
             </button>
           ))}
@@ -143,46 +154,48 @@ export default function LoginForm() {
                   <input id="pwd" type={show ? "text" : "password"} className="input pr-12" value={password} autoComplete="current-password"
                     onChange={(e) => setPassword(e.target.value)} required />
                   <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-navy">
                     {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
               </div>
               <ErrorBox error={error} />
-              <button disabled={busy} className="btn-gold flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 font-semibold disabled:opacity-60">
+              <button disabled={busy} className="btn-gold flex w-full items-center justify-center gap-2 rounded-md px-5 py-3.5 font-semibold disabled:opacity-60">
                 <LogIn className="h-5 w-5" /> {busy ? "Signing in…" : "Sign in"}
               </button>
-              <button type="button" onClick={() => setMode("otp")} className="w-full text-center text-xs text-slate-400 hover:text-white">Forgot password? Sign in with an email code instead</button>
+              <button type="button" onClick={() => setMode("otp")} className="w-full text-center text-xs text-slate-600 hover:text-navy">Forgot password? Sign in with an email code instead</button>
             </motion.form>
           ) : !otpEmail ? (
             <motion.form key="otp-request" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.2 }}
               onSubmit={sendCode} className="relative mt-5 space-y-4">
               <IdentifierField value={identifier} onChange={setIdentifier} />
-              <p className="text-xs text-slate-400">We&apos;ll email a 6-digit one-time code to the address registered for this account. It is valid for 10 minutes.</p>
+              <p className="text-xs text-slate-600">We&apos;ll email a 6-digit one-time code to the address registered for this account. It is valid for 10 minutes.</p>
               <ErrorBox error={error} />
-              <button disabled={busy} className="btn-gold flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 font-semibold disabled:opacity-60">
+              <button disabled={busy} className="btn-gold flex w-full items-center justify-center gap-2 rounded-md px-5 py-3.5 font-semibold disabled:opacity-60">
                 <Mail className="h-5 w-5" /> {busy ? "Sending…" : "Send code"}
               </button>
             </motion.form>
           ) : (
             <motion.form key="otp-verify" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.2 }}
               onSubmit={verifyCode} className="relative mt-5 space-y-4">
-              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">
-                <ShieldCheck className="mr-1 inline h-4 w-4 text-emerald-300" /> Code sent to <b>{maskedEmail}</b>. It expires in 10 minutes.
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                <ShieldCheck className="mr-1 inline h-4 w-4 text-emerald-700" /> Code sent to <b>{maskedEmail}</b>{sentAt && <> at <b>{sentAt} IST</b></>}. It expires in 10 minutes.
+                <span className="mt-1 block text-xs text-emerald-800">Use the email marked “Requested at {sentAt || "…"} IST”.</span>
               </div>
               <div>
                 <label className="label" htmlFor="code">One-time code</label>
-                <input id="code" ref={codeRef} inputMode="numeric" autoComplete="one-time-code" maxLength={8}
+                {/* No maxLength: it would truncate a pasted sentence or spaced digits before onChange sees them. */}
+                <input id="code" ref={codeRef} inputMode="numeric" autoComplete="one-time-code"
                   className="input text-center text-2xl font-bold tracking-[0.5em]" placeholder="••••••"
-                  value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))} />
+                  value={code} onChange={(e) => setCode(extractCode(e.target.value))} />
               </div>
               <ErrorBox error={error} />
-              <button disabled={busy} className="btn-gold flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 font-semibold disabled:opacity-60">
-                <LogIn className="h-5 w-5" /> {busy ? "Verifying…" : "Verify & sign in"}
+              <button disabled={busy} className="btn-gold flex w-full items-center justify-center gap-2 rounded-md px-5 py-3.5 font-semibold disabled:opacity-60">
+                <LogIn className="h-5 w-5" /> {accepted ? "Code accepted — opening the portal…" : busy ? "Verifying…" : "Verify & sign in"}
               </button>
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <button type="button" onClick={() => { setOtpEmail(null); setCode(""); setError(""); }} className="inline-flex items-center gap-1 hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Change account</button>
-                <button type="button" disabled={cooldown > 0 || busy} onClick={() => sendCode()} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-50">
+              <div className="flex items-center justify-between text-xs text-slate-600">
+                <button type="button" onClick={() => { setOtpEmail(null); setCode(""); setError(""); }} className="inline-flex items-center gap-1 hover:text-navy"><ArrowLeft className="h-3.5 w-3.5" /> Change account</button>
+                <button type="button" disabled={cooldown > 0 || busy} onClick={() => sendCode()} className="inline-flex items-center gap-1 hover:text-navy disabled:opacity-50">
                   <Timer className="h-3.5 w-3.5" /> {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
                 </button>
               </div>
@@ -192,8 +205,15 @@ export default function LoginForm() {
 
         <p className="relative mt-6 text-center text-xs text-slate-500">Access is logged. Authorised Nagar Panchayat staff only.</p>
       </motion.div>
+      </div>
     </main>
   );
+}
+
+/** Pulls the 6-digit code out of whatever was typed or pasted ("Your code is 048213 …", "0 4 8 2 1 3"). */
+function extractCode(raw: string) {
+  const run = raw.match(/(?<!\d)\d{6}(?!\d)/);
+  return run ? run[0] : raw.replace(/\D/g, "").slice(0, 6);
 }
 
 function IdentifierField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -208,5 +228,5 @@ function IdentifierField({ value, onChange }: { value: string; onChange: (v: str
 
 function ErrorBox({ error }: { error: string }) {
   if (!error) return null;
-  return <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p>;
+  return <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>;
 }

@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { Search, Download } from "lucide-react";
+import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import RecordsTable from "@/components/admin/RecordsTable";
+import ExportButton from "@/components/admin/ExportDialog";
+import Select from "@/components/ui/Select";
+import DateRangePicker from "@/components/ui/DateRangePicker";
 import type { ParticipantRecord } from "@/lib/types";
 
 const PAGE_SIZE = 50;
@@ -46,31 +49,28 @@ export default async function RecordsPage({ searchParams }: { searchParams: SP }
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white sm:text-2xl">Records</h1>
-          <p className="text-sm text-slate-400">{total.toLocaleString("en-IN")} participant{total === 1 ? "" : "s"}{q ? ` matching “${q}”` : ""}</p>
+          <h1 className="text-xl font-bold text-ink sm:text-2xl">Records</h1>
+          <p className="text-sm text-slate-600">{total.toLocaleString("en-IN")} participant{total === 1 ? "" : "s"}{q ? ` matching “${q}”` : ""}</p>
         </div>
-        <a href={`/api/admin/export${qs({ page: 1 })}`} className="btn-ghost inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold">
-          <Download className="h-4 w-4" /> Export CSV
-        </a>
+        <ExportButton filters={{ q, source, from, to }} />
       </div>
 
-      <form className="glass grid gap-3 rounded-2xl p-4 sm:grid-cols-[1fr_auto_auto_auto_auto]">
+      <form className="glass grid gap-3 rounded-md p-4 md:grid-cols-[minmax(0,1fr)_11rem_17rem_auto]">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input name="q" defaultValue={q} className="input pl-10" placeholder="Search name, phone, email, bag no, serial…" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+          <input name="q" defaultValue={q} className="input pl-10" placeholder="Search name, phone, email, bag no, serial…" aria-label="Search records" />
         </div>
-        <select name="source" defaultValue={source} className="input sm:w-40">
-          <option value="">All sources</option>
-          <option value="web">Web</option>
-          <option value="mobile_app">Mobile app</option>
-        </select>
-        <input type="date" name="from" defaultValue={from} className="input sm:w-40" aria-label="From date" />
-        <input type="date" name="to" defaultValue={to} className="input sm:w-40" aria-label="To date" />
-        <button className="btn-gold rounded-xl px-5 py-2.5 font-semibold">Filter</button>
+        <Select name="source" defaultValue={source} aria-label="Source" options={[
+          { value: "", label: "All sources" },
+          { value: "web", label: "Web", description: "Issued at the collection booth" },
+          { value: "mobile_app", label: "Mobile app", description: "Sent from the field app" },
+        ]} />
+        <DateRangePicker fromName="from" toName="to" defaultFrom={from} defaultTo={to} />
+        <button className="btn-gold rounded-md px-5 py-2.5 font-semibold">Filter</button>
       </form>
 
       {error ? (
-        <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error.message}</p>
+        <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error.message}</p>
       ) : (
         <RecordsTable rows={rows} isAdmin={me?.role === "admin"} />
       )}
@@ -78,7 +78,7 @@ export default async function RecordsPage({ searchParams }: { searchParams: SP }
       {pages > 1 && (
         <div className="flex items-center justify-center gap-2 text-sm">
           <Link aria-disabled={page <= 1} className={`btn-ghost rounded-xl px-4 py-2 ${page <= 1 ? "pointer-events-none opacity-40" : ""}`} href={qs({ page: page - 1 })}>Previous</Link>
-          <span className="px-3 text-slate-400">Page {page} of {pages}</span>
+          <span className="px-3 text-slate-600">Page {page} of {pages}</span>
           <Link aria-disabled={page >= pages} className={`btn-ghost rounded-xl px-4 py-2 ${page >= pages ? "pointer-events-none opacity-40" : ""}`} href={qs({ page: page + 1 })}>Next</Link>
         </div>
       )}

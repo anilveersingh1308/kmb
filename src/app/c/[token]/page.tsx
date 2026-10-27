@@ -21,11 +21,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     title: `Certificate of Appreciation – ${cert.full_name}`,
     description: `${cert.full_name} carried ${cert.waste_kg} kg of waste back from Kedarnath Dham. Verified by Nagar Panchayat Kedarnath.`,
     robots: { index: false, follow: false },
+    // The preview image comes from ./opengraph-image.tsx (a PNG card with the participant's name).
     openGraph: {
-      title: `🙏 ${cert.full_name} – Carry Me Back Certificate`,
-      description: "Verified Certificate of Appreciation · Nagar Panchayat Kedarnath",
-      images: [{ url: "/og.svg", width: 1200, height: 630 }],
+      type: "website",
+      title: `${cert.full_name} — Certificate of Appreciation`,
+      description: `Carried ${Number(cert.waste_kg).toFixed(2)} kg of waste back from Kedarnath Dham · Carry Me Back, Nagar Panchayat Kedarnath · Tap to view & verify.`,
     },
+    twitter: { card: "summary_large_image" },
   };
 }
 

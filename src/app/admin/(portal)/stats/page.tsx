@@ -6,7 +6,7 @@ export default async function StatsPage() {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("campaign_stats");
   if (error || !data) {
-    return <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error?.message ?? "Could not load stats"}</p>;
+    return <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error?.message ?? "Could not load stats"}</p>;
   }
   const s = data as CampaignStats;
 
@@ -30,28 +30,27 @@ export default async function StatsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-white sm:text-2xl">Campaign stats</h1>
-        <p className="text-sm text-slate-400">Live numbers from the collection centre.</p>
+        <h1 className="text-xl font-bold text-ink sm:text-2xl">Campaign stats</h1>
+        <p className="text-sm text-slate-600">Live numbers from the collection centre.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         {cards.map(({ label, icon: Icon, t, w, a, kg }) => (
-          <div key={label} className="glass relative overflow-hidden rounded-3xl p-6">
-            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gold/10 blur-2xl" />
-            <div className="flex items-center gap-2 text-sm text-slate-300"><Icon className="h-4 w-4 text-gold-light" /> {label}</div>
-            <div className="mt-3 text-4xl font-bold text-white">{fmt(a, kg)}</div>
-            <div className="mt-1 text-xs text-slate-400">all time</div>
-            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-4 text-sm">
-              <div><div className="text-slate-400">Today</div><div className="font-semibold text-white">{fmt(t, kg)}</div></div>
-              <div><div className="text-slate-400">Last 7 days</div><div className="font-semibold text-white">{fmt(w, kg)}</div></div>
+          <div key={label} className="glass relative overflow-hidden rounded-lg p-6">
+                        <div className="flex items-center gap-2 text-sm text-slate-700"><Icon className="h-4 w-4 text-navy" /> {label}</div>
+            <div className="mt-3 text-4xl font-bold text-ink">{fmt(a, kg)}</div>
+            <div className="mt-1 text-xs text-slate-600">all time</div>
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4 text-sm">
+              <div><div className="text-slate-600">Today</div><div className="font-semibold text-ink">{fmt(t, kg)}</div></div>
+              <div><div className="text-slate-600">Last 7 days</div><div className="font-semibold text-ink">{fmt(w, kg)}</div></div>
             </div>
           </div>
         ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <div className="glass rounded-3xl p-6">
-          <h2 className="font-semibold text-white">Certificates issued · last 14 days</h2>
+        <div className="glass rounded-lg p-6">
+          <h2 className="font-semibold text-ink">Certificates issued · last 14 days</h2>
           <svg viewBox="0 0 560 200" className="mt-4 w-full" role="img" aria-label="Bar chart of certificates issued per day">
             {days.map((x, i) => {
               const h = (x.n / max) * 150;
@@ -59,29 +58,29 @@ export default async function StatsPage() {
               return (
                 <g key={x.d}>
                   <rect x={bx} y={170 - h} width={28} height={h} rx={6} fill="url(#g)" opacity={x.n ? 1 : 0.25} />
-                  <text x={bx + 14} y={165 - h} textAnchor="middle" fontSize="11" fill="#f3e4a8">{x.n || ""}</text>
-                  <text x={bx + 14} y={190} textAnchor="middle" fontSize="10" fill="#94a3b8">{x.d.slice(8)}</text>
+                  <text x={bx + 14} y={165 - h} textAnchor="middle" fontSize="11" fill="#0b2f6b" fontWeight="600">{x.n || ""}</text>
+                  <text x={bx + 14} y={190} textAnchor="middle" fontSize="10" fill="#4b5768">{x.d.slice(8)}</text>
                 </g>
               );
             })}
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#f3e4a8" /><stop offset="1" stopColor="#b8962e" />
+                <stop offset="0" stopColor="#2f63c0" /><stop offset="1" stopColor="#0b2f6b" />
               </linearGradient>
             </defs>
           </svg>
         </div>
 
-        <div className="glass rounded-3xl p-6">
-          <h2 className="flex items-center gap-2 font-semibold text-white"><Mail className="h-4 w-4 text-gold-light" /> Email delivery</h2>
+        <div className="glass rounded-lg p-6">
+          <h2 className="flex items-center gap-2 font-semibold text-ink"><Mail className="h-4 w-4 text-navy" /> Email delivery</h2>
           <dl className="mt-4 space-y-3 text-sm">
             {[
-              ["Sent", s.emails.sent, "text-emerald-300"],
-              ["Failed", s.emails.failed, "text-rose-300"],
-              ["No email on record", s.emails.skipped, "text-amber-300"],
+              ["Sent", s.emails.sent, "text-emerald-700"],
+              ["Failed", s.emails.failed, "text-rose-700"],
+              ["No email on record", s.emails.skipped, "text-amber-700"],
             ].map(([k, v, c]) => (
-              <div key={k as string} className="flex items-center justify-between border-b border-white/5 pb-3">
-                <dt className="text-slate-300">{k as string}</dt>
+              <div key={k as string} className="flex items-center justify-between border-b border-line pb-3">
+                <dt className="text-slate-700">{k as string}</dt>
                 <dd className={`text-lg font-bold ${c as string}`}>{Number(v).toLocaleString("en-IN")}</dd>
               </div>
             ))}
